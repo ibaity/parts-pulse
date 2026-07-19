@@ -13,6 +13,7 @@ import Vendors from '@/pages/Vendors';
 import Warehouses from '@/pages/Warehouses';
 import MasterFiles from '@/pages/MasterFiles';
 import Analysis from '@/pages/Analysis';
+import PartList from '@/pages/PartList';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -47,6 +48,7 @@ const AuthenticatedApp = () => {
         <Route path="/warehouses" element={<Warehouses />} />
         <Route path="/master-files" element={<MasterFiles />} />
         <Route path="/analysis" element={<Analysis />} />
+        <Route path="/part-list" element={<PartList />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

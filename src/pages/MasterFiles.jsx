@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MasterFileUploader from '@/components/MasterFileUploader';
-import MasterItemsTable from '@/components/MasterItemsTable';
-import { FileSpreadsheet, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileSpreadsheet, ArrowRight } from 'lucide-react';
 import moment from 'moment';
 
 export default function MasterFiles() {
@@ -12,9 +13,6 @@ export default function MasterFiles() {
   const [selectedVendor, setSelectedVendor] = useState('');
   const [masterFiles, setMasterFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedFile, setExpandedFile] = useState(null);
-  const [fileItems, setFileItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -43,26 +41,9 @@ export default function MasterFiles() {
 
   useEffect(() => {
     if (selectedVendor) {
-      setExpandedFile(null);
       loadMasterFiles();
     }
   }, [selectedVendor]);
-
-  const handleViewItems = async (fileId) => {
-    if (expandedFile === fileId) {
-      setExpandedFile(null);
-      return;
-    }
-    setExpandedFile(fileId);
-    setLoadingItems(true);
-    try {
-      const items = await base44.entities.MasterItem.filter({ master_file_id: fileId }, '-created_date', 500);
-      setFileItems(items);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoadingItems(false);
-  };
 
   return (
     <div className="p-8 space-y-6 max-w-5xl">
@@ -107,35 +88,21 @@ export default function MasterFiles() {
             ) : (
               <div className="space-y-3">
                 {masterFiles.map(mf => (
-                  <Card key={mf.id} className="overflow-hidden">
-                    <button
-                      onClick={() => handleViewItems(mf.id)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />
-                        <div className="text-left">
-                          <p className="font-medium text-sm">{mf.file_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {mf.item_count || 0} items · {moment(mf.created_date).format('MMM D, YYYY HH:mm')}
-                          </p>
-                        </div>
+                  <Card key={mf.id} className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm">{mf.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {mf.item_count || 0} items · {moment(mf.created_date).format('MMM D, YYYY HH:mm')}
+                        </p>
                       </div>
-                      {expandedFile === mf.id ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
-                    </button>
-                    {expandedFile === mf.id && (
-                      <div className="border-t bg-slate-50/50">
-                        {loadingItems ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="w-6 h-6 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-                          </div>
-                        ) : (
-                          <div className="p-3">
-                            <MasterItemsTable items={fileItems} fileId={expandedFile} />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    </div>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/part-list?vendor=${selectedVendor}`}>
+                        Manage in Part List <ArrowRight className="w-4 h-4 ml-1" />
+                      </Link>
+                    </Button>
                   </Card>
                 ))}
               </div>
