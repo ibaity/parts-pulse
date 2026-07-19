@@ -7,11 +7,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { Search } from 'lucide-react';
 
 const CATEGORIES = [
-  'سرعة الاستخدام - أقل من سنة',
-  'من سنة إلى 3 سنوات',
-  'بطيئة جداً - 3 إلى 5 سنوات',
-  'تطلب عند الحاجة',
-  'Obsolete - منتهية',
+  'High Rotation',
+  'Medium Rotation',
+  'Slow Moving',
+  'On Demand',
+  'Obsolete',
 ];
 
 export default function UnknownItemsTable({ items, vendorId, onSaved }) {
