@@ -101,7 +101,20 @@ export default function PartList() {
               {masterItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
               ) : (
-                <MasterItemsTable items={masterItems} onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))} />
+                <MasterItemsTable
+                  items={masterItems}
+                  onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
+                  onSaved={(edits) => {
+                    setMasterItems(prev => prev.map(item => {
+                      if (!edits[item.id]) return item;
+                      const changes = { ...edits[item.id] };
+                      if (changes.minimum_stock !== undefined) {
+                        changes.minimum_stock = Number(changes.minimum_stock) || 0;
+                      }
+                      return { ...item, ...changes };
+                    }));
+                  }}
+                />
               )}
             </Card>
           </div>

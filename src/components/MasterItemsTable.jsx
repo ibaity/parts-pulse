@@ -15,7 +15,7 @@ const CATEGORIES = [
   'Obsolete',
 ];
 
-export default function MasterItemsTable({ items, fileId, onDeleted }) {
+export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -75,6 +75,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted }) {
       }));
       await base44.entities.MasterItem.bulkUpdate(updates);
       toast({ title: 'Saved', description: `${updates.length} item(s) updated` });
+      onSaved?.(edits);
       setEdits({});
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' });
