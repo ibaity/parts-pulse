@@ -7,6 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, Columns3, Check, Trash2, Loader2 } from 'lucide-react';
+import { useTableSort } from '@/hooks/useTableSort';
+import SortHeader from '@/components/table/SortHeader';
 
 const CATEGORIES = [
   'High Rotation',
@@ -49,6 +51,8 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
       (i.description || '').toLowerCase().includes(q)
     );
   }, [items, search]);
+
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(filtered);
 
   const updateField = (id, field, value) => {
     setEdits(prev => ({
@@ -106,7 +110,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
   };
 
   const handleSaveAll = async () => {
-    const ids = filtered.map(i => i.id);
+    const ids = sorted.map(i => i.id);
     setSavingIds(new Set(ids));
     try {
       for (const id of ids) {
@@ -193,23 +197,23 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="overflow-auto max-h-[400px] border rounded-lg">
+      <div className="overflow-auto max-h-[400px] border rounded-lg shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 sticky top-0 z-10">
+          <thead className="bg-muted/70 backdrop-blur-sm sticky top-0 z-10 border-b">
             <tr>
-              {visibleCols.item_code && <th className="text-left p-2 font-medium whitespace-nowrap">PDF Code</th>}
+              {visibleCols.item_code && <SortHeader label="PDF Code" sortKey="item_code" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.mediserv_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Mediserv Code</th>}
               {visibleCols.manufacturer_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Manufacturer Code</th>}
-              {visibleCols.description && <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>}
+              {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
-              {visibleCols.minimum_stock && <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>}
+              {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               <th className="text-center p-2 font-medium whitespace-nowrap">Save</th>
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(item => (
-              <tr key={item.id} className="border-b hover:bg-muted/30">
+            {sorted.map(item => (
+              <tr key={item.id} className="border-b transition-colors hover:bg-muted/40">
                 {visibleCols.item_code && <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.item_code || '-'}</td>}
                 {visibleCols.mediserv_item_code && (
                   <td className="p-1">
@@ -292,7 +296,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div className="p-8 text-center text-sm text-muted-foreground">No unknown items.</div>
         )}
       </div>

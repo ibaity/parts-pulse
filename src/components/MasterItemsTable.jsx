@@ -7,6 +7,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
+import { useTableSort } from '@/hooks/useTableSort';
+import SortHeader from '@/components/table/SortHeader';
 
 const CATEGORIES = [
   'High Rotation',
@@ -49,6 +51,8 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
       (i.category || '').toLowerCase().includes(q)
     );
   }, [items, search]);
+
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(filtered);
 
   const dirtyIds = Object.keys(edits);
 
@@ -158,23 +162,23 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
         </div>
       </div>
 
-      <div className="overflow-auto max-h-[500px] border rounded-lg">
+      <div className="overflow-auto max-h-[500px] border rounded-lg shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 sticky top-0 z-10">
+          <thead className="bg-muted/70 backdrop-blur-sm sticky top-0 z-10 border-b">
             <tr>
-              {visibleCols.mediserv_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Mediserv Code</th>}
-              {visibleCols.manufacturer_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Manufacturer Code</th>}
-              {visibleCols.description && <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>}
-              {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
-              {visibleCols.minimum_stock && <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>}
+              {visibleCols.mediserv_item_code && <SortHeader label="Mediserv Code" sortKey="mediserv_item_code" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
+              {visibleCols.manufacturer_item_code && <SortHeader label="Manufacturer Code" sortKey="manufacturer_item_code" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
+              {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
+              {visibleCols.category && <SortHeader label="Category" sortKey="category" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
+              {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(item => {
+            {sorted.map(item => {
               const isDirty = !!edits[item.id];
               return (
-                <tr key={item.id} className={`border-b ${isDirty ? 'bg-amber-50' : 'hover:bg-muted/30'}`}>
+                <tr key={item.id} className={`border-b transition-colors ${isDirty ? 'bg-amber-50' : 'hover:bg-muted/40'}`}>
                   {visibleCols.mediserv_item_code && (
                     <td className="p-1">
                       <input
@@ -245,12 +249,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
             })}
           </tbody>
         </table>
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div className="p-8 text-center text-sm text-muted-foreground">No items match your search.</div>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        {filtered.length} of {items.length} items · Click any cell to edit · Changes highlighted in amber
+        {sorted.length} of {items.length} items · Click any cell to edit · Changes highlighted in amber
       </p>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

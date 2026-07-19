@@ -58,9 +58,14 @@ export default function PartList() {
 
   return (
     <div className="p-6 space-y-6 w-full max-w-[1600px]">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Part List</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage all parts and classify unknown items from PDF reports</p>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <PackageSearch className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Part List</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage all parts and classify unknown items from PDF reports</p>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -85,7 +90,7 @@ export default function PartList() {
         ) : (
           <>
             {/* Pill Tab Bar */}
-            <div className="inline-flex items-center gap-1 bg-muted rounded-full p-1">
+            <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1 border">
               {TABS.map(tab => {
                 const Icon = tab.icon;
                 const count = tab.key === 'unknown' ? unknownItems.length : masterItems.length;
@@ -94,10 +99,10 @@ export default function PartList() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                    className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow'
-                        : 'text-muted-foreground hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
