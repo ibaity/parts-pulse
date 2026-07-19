@@ -7,6 +7,11 @@ import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import { PackageSearch, AlertCircle } from 'lucide-react';
 
+const TABS = [
+  { key: 'unknown', label: 'Unknown Items', icon: AlertCircle },
+  { key: 'master', label: 'Master Items', icon: PackageSearch },
+];
+
 export default function PartList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [vendors, setVendors] = useState([]);
@@ -14,6 +19,7 @@ export default function PartList() {
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('unknown');
 
   useEffect(() => {
     const load = async () => {
@@ -71,53 +77,74 @@ export default function PartList() {
             <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                <h2 className="text-lg font-semibold">Unknown Items ({unknownItems.length})</h2>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Items from PDF reports not matched — classify and save to master.</p>
-              {unknownItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">No unknown items. All matched!</p>
-              ) : (
-                <UnknownItemsTable
-                  items={unknownItems}
-                  vendorId={selectedVendor}
-                  onSaved={(id) => {
-                    setUnknownItems(prev => prev.filter(i => i.id !== id));
-                    setMasterItems(prev => [...prev]);
-                  }}
-                />
-              )}
-            </Card>
+          <>
+            {/* Pill Tab Bar */}
+            <div className="inline-flex items-center gap-1 bg-muted rounded-full p-1">
+              {TABS.map(tab => {
+                const Icon = tab.icon;
+                const count = tab.key === 'unknown' ? unknownItems.length : masterItems.length;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-primary-foreground/20' : 'bg-muted-foreground/15'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
+            {/* Tab Content */}
             <Card className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <PackageSearch className="w-5 h-5 text-primary shrink-0" />
-                <h2 className="text-lg font-semibold">Master Items ({masterItems.length})</h2>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">All classified parts in the master list.</p>
-              {masterItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
+              {activeTab === 'unknown' ? (
+                <>
+                  {unknownItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">No unknown items. All matched!</p>
+                  ) : (
+                    <UnknownItemsTable
+                      items={unknownItems}
+                      vendorId={selectedVendor}
+                      onSaved={(id) => {
+                        setUnknownItems(prev => prev.filter(i => i.id !== id));
+                        setMasterItems(prev => [...prev]);
+                      }}
+                    />
+                  )}
+                </>
               ) : (
-                <MasterItemsTable
-                  items={masterItems}
-                  onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
-                  onSaved={(edits) => {
-                    setMasterItems(prev => prev.map(item => {
-                      if (!edits[item.id]) return item;
-                      const changes = { ...edits[item.id] };
-                      if (changes.minimum_stock !== undefined) {
-                        changes.minimum_stock = Number(changes.minimum_stock) || 0;
-                      }
-                      return { ...item, ...changes };
-                    }));
-                  }}
-                />
+                <>
+                  {masterItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
+                  ) : (
+                    <MasterItemsTable
+                      items={masterItems}
+                      onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
+                      onSaved={(edits) => {
+                        setMasterItems(prev => prev.map(item => {
+                          if (!edits[item.id]) return item;
+                          const changes = { ...edits[item.id] };
+                          if (changes.minimum_stock !== undefined) {
+                            changes.minimum_stock = Number(changes.minimum_stock) || 0;
+                          }
+                          return { ...item, ...changes };
+                        }));
+                      }}
+                    />
+                  )}
+                </>
               )}
             </Card>
-          </div>
+          </>
         )
       )}
     </div>
