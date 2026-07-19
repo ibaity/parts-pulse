@@ -42,7 +42,13 @@ export default function PartList() {
         base44.entities.AnalysisItem.filter({ vendor_id: selectedVendor, matched_via: 'none' }, '-created_date', 500),
       ]).then(([master, unknown]) => {
         setMasterItems(master);
-        setUnknownItems(unknown);
+        const masterCodes = new Set();
+        master.forEach(m => {
+          if (m.mediserv_item_code) masterCodes.add(m.mediserv_item_code.trim().toLowerCase());
+          if (m.manufacturer_item_code) masterCodes.add(m.manufacturer_item_code.trim().toLowerCase());
+        });
+        const filteredUnknown = unknown.filter(u => !masterCodes.has((u.item_code || '').trim().toLowerCase()));
+        setUnknownItems(filteredUnknown);
       }).catch(err => console.error(err)).finally(() => setLoading(false));
     } else {
       setMasterItems([]);
@@ -112,12 +118,13 @@ export default function PartList() {
                     <p className="text-sm text-muted-foreground py-8 text-center">No unknown items. All matched!</p>
                   ) : (
                     <UnknownItemsTable
-                      items={unknownItems}
-                      vendorId={selectedVendor}
-                      onSaved={(id) => {
-                        setUnknownItems(prev => prev.filter(i => i.id !== id));
-                        setMasterItems(prev => [...prev]);
-                      }}
+                     items={unknownItems}
+                     vendorId={selectedVendor}
+                     onSaved={(id) => {
+                       setUnknownItems(prev => prev.filter(i => i.id !== id));
+                       setMasterItems(prev => [...prev]);
+                     }}
+                     onDeleted={(id) => setUnknownItems(prev => prev.filter(i => i.id !== id))}
                     />
                   )}
                 </>

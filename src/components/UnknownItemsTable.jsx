@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Columns3, Check } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Search, Columns3, Check, Trash2, Loader2 } from 'lucide-react';
 
 const CATEGORIES = [
   'High Rotation',
@@ -24,10 +25,12 @@ const COLUMN_DEFS = [
   { key: 'minimum_stock', label: 'Min Stock' },
 ];
 
-export default function UnknownItemsTable({ items, vendorId, onSaved }) {
+export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [savingIds, setSavingIds] = useState(new Set());
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [visibleCols, setVisibleCols] = useState({
     item_code: true,
     mediserv_item_code: true,
@@ -85,6 +88,21 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
       toast({ title: 'Error', description: 'Failed to save item', variant: 'destructive' });
     }
     setSavingIds(prev => { const c = new Set(prev); c.delete(itemId); return c; });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await base44.entities.AnalysisItem.delete(deleteTarget.id);
+      toast({ title: 'Deleted', description: 'Unknown item removed' });
+      setEdits(prev => { const c = { ...prev }; delete c[deleteTarget.id]; return c; });
+      onDeleted?.(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete item', variant: 'destructive' });
+    }
+    setDeleting(false);
   };
 
   const handleSaveAll = async () => {
@@ -154,6 +172,27 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
         </div>
       </div>
 
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this unknown item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.description || deleteTarget?.item_code || 'this item'}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="overflow-auto max-h-[400px] border rounded-lg">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 sticky top-0 z-10">
@@ -164,6 +203,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
               {visibleCols.description && <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>}
               {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
               {visibleCols.minimum_stock && <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>}
+              <th className="text-center p-2 font-medium whitespace-nowrap">Save</th>
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
@@ -235,7 +275,17 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
                     disabled={savingIds.has(item.id)}
                     onClick={() => handleSave(item.id)}
                   >
-                    {savingIds.has(item.id) ? '...' : 'Save'}
+                    {savingIds.has(item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                  </Button>
+                </td>
+                <td className="p-1 text-center">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleteTarget(item)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </td>
               </tr>
