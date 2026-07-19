@@ -1,0 +1,22 @@
+{
+  "name": "Vendor",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Vendor Name"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "color": {
+      "type": "string",
+      "title": "Color",
+      "default": "#1E3A5F"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

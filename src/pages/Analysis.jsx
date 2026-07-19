@@ -1,0 +1,128 @@
+import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AnalysisRunner from '@/components/AnalysisRunner';
+import ResultsTable from '@/components/ResultsTable';
+import { FileText, ChevronRight } from 'lucide-react';
+import moment from 'moment';
+
+export default function Analysis() {
+  const [vendors, setVendors] = useState([]);
+  const [selectedVendor, setSelectedVendor] = useState('');
+  const [results, setResults] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [loadingRun, setLoadingRun] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await base44.entities.Vendor.list('-created_date', 100);
+      setVendors(data);
+    };
+    load();
+  }, []);
+
+  const loadRuns = async () => {
+    if (!selectedVendor) return;
+    const data = await base44.entities.AnalysisRun.filter({ vendor_id: selectedVendor }, '-created_date', 20);
+    setRuns(data);
+  };
+
+  useEffect(() => {
+    if (selectedVendor) {
+      setResults(null);
+      loadRuns();
+    }
+  }, [selectedVendor]);
+
+  const handleViewRun = async (run) => {
+    setLoadingRun(run.id);
+    try {
+      const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: run.id }, '-recommended_quantity', 500);
+      setResults(items);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoadingRun(null);
+  };
+
+  const handleAnalysisComplete = (newResults) => {
+    setResults(newResults);
+    loadRuns();
+  };
+
+  const selectedVendorObj = vendors.find(v => v.id === selectedVendor);
+
+  return (
+    <div className="p-8 space-y-6 max-w-6xl">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Analysis</h1>
+        <p className="text-sm text-muted-foreground mt-1">Upload a PDF inventory report and get purchase recommendations</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Select Vendor</label>
+        <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+          <SelectTrigger className="w-full max-w-md">
+            <SelectValue placeholder="Choose a vendor..." />
+          </SelectTrigger>
+          <SelectContent>
+            {vendors.map(v => (
+              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {selectedVendor && (
+        <>
+          <AnalysisRunner
+            vendorId={selectedVendor}
+            onAnalysisComplete={handleAnalysisComplete}
+          />
+
+          {results && (
+            <ResultsTable results={results} vendorName={selectedVendorObj?.name} />
+          )}
+
+          {runs.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-3">Past Analysis Runs</h2>
+              <div className="space-y-2">
+                {runs.map(run => (
+                  <Card key={run.id} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="w-5 h-5 text-red-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{run.pdf_file_name}</p>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {moment(run.created_date).format('MMM D, YYYY HH:mm')}
+                            <span className="text-amber-600 ml-2">{run.items_to_purchase || 0} to purchase</span>
+                            <span className="text-red-600 ml-2">{run.critical_items || 0} critical</span>
+                            <span className="text-purple-600 ml-2">{run.unknown_items || 0} unknown</span>
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewRun(run)}
+                        disabled={loadingRun === run.id}
+                        className="shrink-0"
+                      >
+                        {loadingRun === run.id ? 'Loading...' : 'View Results'}
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

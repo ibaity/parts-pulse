@@ -1,0 +1,52 @@
+{
+  "name": "AnalysisRun",
+  "type": "object",
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "pdf_file_url": {
+      "type": "string",
+      "title": "PDF File URL"
+    },
+    "pdf_file_name": {
+      "type": "string",
+      "title": "PDF File Name"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "completed",
+        "processing",
+        "failed"
+      ],
+      "default": "processing"
+    },
+    "total_items": {
+      "type": "number",
+      "title": "Total Items",
+      "default": 0
+    },
+    "items_to_purchase": {
+      "type": "number",
+      "title": "Items to Purchase",
+      "default": 0
+    },
+    "critical_items": {
+      "type": "number",
+      "title": "Critical Items",
+      "default": 0
+    },
+    "unknown_items": {
+      "type": "number",
+      "title": "Unknown Items",
+      "default": 0
+    }
+  },
+  "required": [
+    "vendor_id"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "MasterItem",
+  "type": "object",
+  "properties": {
+    "master_file_id": {
+      "type": "string",
+      "title": "Master File",
+      "relation": "MasterFile"
+    },
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "mediserv_item_code": {
+      "type": "string",
+      "title": "Mediserv Item Code"
+    },
+    "manufacturer_item_code": {
+      "type": "string",
+      "title": "Manufacturer Item Code"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "minimum_stock": {
+      "type": "number",
+      "title": "Minimum Stock",
+      "default": 0
+    }
+  },
+  "required": [
+    "vendor_id"
+  ]
+}

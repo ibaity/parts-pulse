@@ -1,0 +1,28 @@
+{
+  "name": "Warehouse",
+  "type": "object",
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "name": {
+      "type": "string",
+      "title": "Warehouse Name"
+    },
+    "code": {
+      "type": "string",
+      "title": "Warehouse Code"
+    },
+    "enabled": {
+      "type": "boolean",
+      "title": "Enabled in Stock Calculation",
+      "default": true
+    }
+  },
+  "required": [
+    "vendor_id",
+    "name"
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "name": "AnalysisItem",
+  "type": "object",
+  "properties": {
+    "analysis_run_id": {
+      "type": "string",
+      "title": "Analysis Run",
+      "relation": "AnalysisRun"
+    },
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "item_code": {
+      "type": "string",
+      "title": "Item Code"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "current_stock": {
+      "type": "number",
+      "title": "Current Stock",
+      "default": 0
+    },
+    "minimum_stock": {
+      "type": "number",
+      "title": "Minimum Stock",
+      "default": 0
+    },
+    "recommended_quantity": {
+      "type": "number",
+      "title": "Recommended Quantity",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "critical",
+        "low",
+        "unknown"
+      ],
+      "default": "low"
+    },
+    "matched_via": {
+      "type": "string",
+      "title": "Matched Via",
+      "enum": [
+        "mediserv_code",
+        "manufacturer_code",
+        "none"
+      ],
+      "default": "none"
+    },
+    "warehouse_breakdown": {
+      "type": "object",
+      "title": "Warehouse Breakdown"
+    }
+  },
+  "required": [
+    "analysis_run_id",
+    "vendor_id"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "MasterFile",
+  "type": "object",
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "file_url": {
+      "type": "string",
+      "title": "File URL"
+    },
+    "file_name": {
+      "type": "string",
+      "title": "File Name"
+    },
+    "column_mapping": {
+      "type": "object",
+      "title": "Column Mapping"
+    },
+    "item_count": {
+      "type": "number",
+      "title": "Item Count",
+      "default": 0
+    }
+  },
+  "required": [
+    "vendor_id",
+    "file_url"
+  ]
+}
