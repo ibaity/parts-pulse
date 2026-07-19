@@ -6,9 +6,12 @@ export function isWarehouseEnabled(warehouseName, enabledWarehouses) {
   const normalized = normalizeName(warehouseName);
   if (!normalized) return false;
   return enabledWarehouses.some(wh => {
-    const whNorm = normalizeName(wh.name);
-    if (!whNorm) return false;
-    return whNorm === normalized || whNorm.includes(normalized) || normalized.includes(whNorm);
+    const whName = normalizeName(wh.name);
+    const whCode = normalizeName(wh.code);
+    if (!whName && !whCode) return false;
+    const nameMatch = whName && (whName === normalized || whName.includes(normalized) || normalized.includes(whName));
+    const codeMatch = whCode && (whCode === normalized || whCode.includes(normalized) || normalized.includes(whCode));
+    return nameMatch || codeMatch;
   });
 }
 

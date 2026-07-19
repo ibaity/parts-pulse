@@ -71,13 +71,13 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
       const masterItems = await base44.entities.MasterItem.filter({ vendor_id: vendorId });
 
       setStep('Loading warehouses...');
-      const warehouses = await base44.entities.Warehouse.filter({ vendor_id: vendorId });
+      const warehouses = await base44.entities.Warehouse.list('-created_date', 200);
       const enabledWarehouses = warehouses.filter(w => w.enabled);
 
       if (enabledWarehouses.length === 0) {
         toast({
           title: 'Warning',
-          description: 'No enabled warehouses. All stock will be calculated as 0.',
+          description: 'No enabled warehouses. All stock will be calculated as 0. Define warehouses in the Warehouses page.',
         });
       }
 

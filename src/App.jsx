@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Layout from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Vendors from '@/pages/Vendors';
+import Warehouses from '@/pages/Warehouses';
 import MasterFiles from '@/pages/MasterFiles';
 import Analysis from '@/pages/Analysis';
 
@@ -43,6 +44,7 @@ const AuthenticatedApp = () => {
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/vendors" element={<Vendors />} />
+        <Route path="/warehouses" element={<Warehouses />} />
         <Route path="/master-files" element={<MasterFiles />} />
         <Route path="/analysis" element={<Analysis />} />
       </Route>

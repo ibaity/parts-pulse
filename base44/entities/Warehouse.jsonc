@@ -2,14 +2,9 @@
   "name": "Warehouse",
   "type": "object",
   "properties": {
-    "vendor_id": {
-      "type": "string",
-      "title": "Vendor",
-      "relation": "Vendor"
-    },
     "name": {
       "type": "string",
-      "title": "Warehouse Name"
+      "title": "Location"
     },
     "code": {
       "type": "string",
@@ -17,12 +12,11 @@
     },
     "enabled": {
       "type": "boolean",
-      "title": "Enabled in Stock Calculation",
+      "title": "Included in Stock Calculation",
       "default": true
     }
   },
   "required": [
-    "vendor_id",
     "name"
   ]
 }
