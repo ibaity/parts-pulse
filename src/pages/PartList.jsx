@@ -8,8 +8,8 @@ import UnknownItemsTable from '@/components/UnknownItemsTable';
 import { PackageSearch, AlertCircle } from 'lucide-react';
 
 const TABS = [
-  { key: 'unknown', label: 'Unknown Items', icon: AlertCircle },
   { key: 'master', label: 'Master Items', icon: PackageSearch },
+  { key: 'unknown', label: 'Unknown Items', icon: AlertCircle },
 ];
 
 export default function PartList() {
@@ -19,7 +19,7 @@ export default function PartList() {
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('unknown');
+  const [activeTab, setActiveTab] = useState('master');
 
   useEffect(() => {
     const load = async () => {

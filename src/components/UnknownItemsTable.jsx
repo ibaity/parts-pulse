@@ -3,8 +3,9 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
-import { Search } from 'lucide-react';
+import { Search, Columns3, Check } from 'lucide-react';
 
 const CATEGORIES = [
   'High Rotation',
@@ -14,10 +15,27 @@ const CATEGORIES = [
   'Obsolete',
 ];
 
+const COLUMN_DEFS = [
+  { key: 'item_code', label: 'PDF Code' },
+  { key: 'mediserv_item_code', label: 'Mediserv Code' },
+  { key: 'manufacturer_item_code', label: 'Manufacturer Code' },
+  { key: 'description', label: 'Description' },
+  { key: 'category', label: 'Category' },
+  { key: 'minimum_stock', label: 'Min Stock' },
+];
+
 export default function UnknownItemsTable({ items, vendorId, onSaved }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [savingIds, setSavingIds] = useState(new Set());
+  const [visibleCols, setVisibleCols] = useState({
+    item_code: true,
+    mediserv_item_code: true,
+    manufacturer_item_code: true,
+    description: true,
+    category: true,
+    minimum_stock: true,
+  });
   const { toast } = useToast();
 
   const filtered = useMemo(() => {
@@ -107,74 +125,108 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
             className="pl-9 h-9"
           />
         </div>
-        <Button onClick={handleSaveAll} size="sm" variant="default">
-          Save All to Master
-        </Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <Columns3 className="w-4 h-4 mr-2" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {COLUMN_DEFS.map(col => (
+                <DropdownMenuItem
+                  key={col.key}
+                  onClick={() => setVisibleCols(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                  className="cursor-pointer flex items-center justify-between"
+                >
+                  <span>{col.label}</span>
+                  {visibleCols[col.key] && <Check className="w-3.5 h-3.5 text-primary" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={handleSaveAll} size="sm" variant="default">
+            Save All to Master
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-auto max-h-[400px] border rounded-lg">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 sticky top-0 z-10">
             <tr>
-              <th className="text-left p-2 font-medium whitespace-nowrap">PDF Code</th>
-              <th className="text-left p-2 font-medium whitespace-nowrap">Mediserv Code</th>
-              <th className="text-left p-2 font-medium whitespace-nowrap">Manufacturer Code</th>
-              <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>
-              <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>
-              <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>
+              {visibleCols.item_code && <th className="text-left p-2 font-medium whitespace-nowrap">PDF Code</th>}
+              {visibleCols.mediserv_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Mediserv Code</th>}
+              {visibleCols.manufacturer_item_code && <th className="text-left p-2 font-medium whitespace-nowrap">Manufacturer Code</th>}
+              {visibleCols.description && <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>}
+              {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
+              {visibleCols.minimum_stock && <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(item => (
               <tr key={item.id} className="border-b hover:bg-muted/30">
-                <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.item_code || '-'}</td>
-                <td className="p-1">
-                  <input
-                    className="w-full bg-transparent rounded px-1 py-1 font-mono text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                    value={getValue(item, 'mediserv_item_code')}
-                    onChange={e => updateField(item.id, 'mediserv_item_code', e.target.value)}
-                  />
-                </td>
-                <td className="p-1">
-                  <input
-                    className="w-full bg-transparent rounded px-1 py-1 font-mono text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                    placeholder="—"
-                    value={getValue(item, 'manufacturer_item_code')}
-                    onChange={e => updateField(item.id, 'manufacturer_item_code', e.target.value)}
-                  />
-                </td>
-                <td className="p-1">
-                  <input
-                    className="w-full bg-transparent rounded px-1 py-1 text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                    value={getValue(item, 'description')}
-                    onChange={e => updateField(item.id, 'description', e.target.value)}
-                  />
-                </td>
-                <td className="p-1">
-                  <Select
-                    value={getValue(item, 'category') || 'uncategorized'}
-                    onValueChange={v => updateField(item.id, 'category', v === 'uncategorized' ? '' : v)}
-                  >
-                    <SelectTrigger className="h-7 text-xs w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="uncategorized">— None —</SelectItem>
-                      {CATEGORIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="p-1">
-                  <input
-                    type="number"
-                    className="w-20 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                    value={getValue(item, 'minimum_stock')}
-                    onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
-                  />
-                </td>
+                {visibleCols.item_code && <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.item_code || '-'}</td>}
+                {visibleCols.mediserv_item_code && (
+                  <td className="p-1">
+                    <input
+                      className="w-full bg-transparent rounded px-1 py-1 font-mono text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      value={getValue(item, 'mediserv_item_code')}
+                      onChange={e => updateField(item.id, 'mediserv_item_code', e.target.value)}
+                    />
+                  </td>
+                )}
+                {visibleCols.manufacturer_item_code && (
+                  <td className="p-1">
+                    <input
+                      className="w-full bg-transparent rounded px-1 py-1 font-mono text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      placeholder="—"
+                      value={getValue(item, 'manufacturer_item_code')}
+                      onChange={e => updateField(item.id, 'manufacturer_item_code', e.target.value)}
+                    />
+                  </td>
+                )}
+                {visibleCols.description && (
+                  <td className="p-1">
+                    <input
+                      className="w-full bg-transparent rounded px-1 py-1 text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      value={getValue(item, 'description')}
+                      onChange={e => updateField(item.id, 'description', e.target.value)}
+                    />
+                  </td>
+                )}
+                {visibleCols.category && (
+                  <td className="p-1">
+                    <Select
+                      value={getValue(item, 'category') || 'uncategorized'}
+                      onValueChange={v => updateField(item.id, 'category', v === 'uncategorized' ? '' : v)}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="uncategorized">— None —</SelectItem>
+                        {CATEGORIES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                )}
+                {visibleCols.minimum_stock && (
+                  <td className="p-1">
+                    <input
+                      type="number"
+                      className="w-20 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      value={getValue(item, 'minimum_stock')}
+                      onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
+                    />
+                  </td>
+                )}
                 <td className="p-1 text-center whitespace-nowrap">
                   <Button
                     size="sm"
