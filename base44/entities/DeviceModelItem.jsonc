@@ -1,0 +1,20 @@
+{
+  "name": "DeviceModelItem",
+  "type": "object",
+  "properties": {
+    "device_model_id": {
+      "type": "string",
+      "title": "Device Model",
+      "relation": "DeviceModel"
+    },
+    "master_item_id": {
+      "type": "string",
+      "title": "Master Item",
+      "relation": "MasterItem"
+    }
+  },
+  "required": [
+    "device_model_id",
+    "master_item_id"
+  ]
+}

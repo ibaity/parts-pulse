@@ -1,0 +1,38 @@
+{
+  "name": "DeviceModel",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Model Name"
+    },
+    "manufacturer": {
+      "type": "string",
+      "title": "Manufacturer"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "MRI",
+        "CT Scanner",
+        "Ultrasound",
+        "X-Ray",
+        "Mammography",
+        "Fluoroscopy",
+        "Angiography",
+        "PET",
+        "Other"
+      ],
+      "default": "Other"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    }
+  },
+  "required": [
+    "name",
+    "category"
+  ]
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, Stethoscope, ListChecks, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, Stethoscope, ListChecks, Monitor, Menu, X } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -8,6 +8,7 @@ const navItems = [
   { path: '/warehouses', label: 'Warehouses', icon: WarehouseIcon },
   { path: '/master-files', label: 'Master Files', icon: FileSpreadsheet },
   { path: '/part-list', label: 'Part List', icon: ListChecks },
+  { path: '/device-models', label: 'Device Models', icon: Monitor },
   { path: '/analysis', label: 'Analysis', icon: FlaskConical },
 ];
 

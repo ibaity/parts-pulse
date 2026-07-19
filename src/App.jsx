@@ -14,6 +14,7 @@ import Warehouses from '@/pages/Warehouses';
 import MasterFiles from '@/pages/MasterFiles';
 import Analysis from '@/pages/Analysis';
 import PartList from '@/pages/PartList';
+import DeviceModels from '@/pages/DeviceModels';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -49,6 +50,7 @@ const AuthenticatedApp = () => {
         <Route path="/master-files" element={<MasterFiles />} />
         <Route path="/analysis" element={<Analysis />} />
         <Route path="/part-list" element={<PartList />} />
+        <Route path="/device-models" element={<DeviceModels />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
