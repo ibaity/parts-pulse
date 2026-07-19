@@ -70,8 +70,8 @@ export default function Layout() {
 
       {/* Mobile drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-primary text-primary-foreground flex flex-col transform transition-transform duration-200 md:hidden ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-primary text-primary-foreground flex-col md:hidden ${
+          sidebarOpen ? 'flex' : 'hidden'
         }`}
       >
         <button
@@ -86,8 +86,8 @@ export default function Layout() {
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-primary text-primary-foreground shrink-0">
-          <button onClick={() => setSidebarOpen(true)} className="text-white">
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-primary text-primary-foreground shrink-0 relative z-30">
+          <button onClick={() => setSidebarOpen(true)} className="text-white p-1 -ml-1">
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-2">
