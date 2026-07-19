@@ -4,9 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Upload, FileText, Loader2 } from 'lucide-react';
-import { runAnalysis } from '@/lib/analysisUtils';
-
-const CHUNK_SIZE = 500;
+import { executeAnalysisFlow } from '@/lib/analysisFlow';
 
 export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   const [file, setFile] = useState(null);
@@ -26,81 +24,19 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
       setStep('Uploading PDF...');
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-      setStep('Creating analysis run...');
-      const run = await base44.entities.AnalysisRun.create({
-        vendor_id: vendorId,
-        pdf_file_url: file_url,
-        pdf_file_name: file.name,
-        status: 'processing',
+      const { results, summary, enabledWarehouseCount } = await executeAnalysisFlow({
+        vendorId,
+        pdfFileUrl: file_url,
+        pdfFileName: file.name,
+        onStep: setStep,
       });
 
-      setStep('Extracting data from PDF (this may take a moment)...');
-      const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
-        json_schema: {
-          type: 'object',
-          properties: {
-            items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  item_code: { type: 'string', description: 'The item/product code or SKU number' },
-                  warehouse: { type: 'string', description: 'The warehouse name or identifier where the item is stored' },
-                  quantity: { type: 'number', description: 'The quantity on hand for this item in this warehouse' },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (extractResult.status === 'error') {
-        throw new Error(extractResult.details || 'PDF extraction failed');
-      }
-
-      const pdfItems = Array.isArray(extractResult.output)
-        ? extractResult.output
-        : extractResult.output?.items || [];
-
-      if (pdfItems.length === 0) {
-        throw new Error('No items found in PDF. Make sure the PDF contains item codes and quantities.');
-      }
-
-      setStep('Loading master items...');
-      const masterItems = await base44.entities.MasterItem.filter({ vendor_id: vendorId });
-
-      setStep('Loading warehouses...');
-      const warehouses = await base44.entities.Warehouse.list('-created_date', 200);
-      const enabledWarehouses = warehouses.filter(w => w.enabled);
-
-      if (enabledWarehouses.length === 0) {
+      if (enabledWarehouseCount === 0) {
         toast({
           title: 'Warning',
           description: 'No enabled warehouses. All stock will be calculated as 0. Define warehouses in the Warehouses page.',
         });
       }
-
-      setStep('Running analysis...');
-      const { results, summary } = runAnalysis(pdfItems, masterItems, enabledWarehouses);
-
-      setStep('Saving results...');
-      const itemsToSave = results.map(r => ({
-        ...r,
-        analysis_run_id: run.id,
-        vendor_id: vendorId,
-      }));
-      for (let i = 0; i < itemsToSave.length; i += CHUNK_SIZE) {
-        await base44.entities.AnalysisItem.bulkCreate(itemsToSave.slice(i, i + CHUNK_SIZE));
-      }
-
-      await base44.entities.AnalysisRun.update(run.id, {
-        status: 'completed',
-        total_items: summary.total_items,
-        items_to_purchase: summary.items_to_purchase,
-        critical_items: summary.critical_items,
-        unknown_items: summary.unknown_items,
-      });
 
       toast({
         title: 'Analysis Complete',
