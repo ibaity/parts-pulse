@@ -7,13 +7,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { Search, Save, Loader2, Check } from 'lucide-react';
 
 const CATEGORIES = [
-  'Reagents',
-  'Consumables',
-  'Spare Parts',
-  'Calibrators',
-  'Controls',
-  'Accessories',
-  'Other',
+  'سرعة الاستخدام - أقل من سنة',
+  'من سنة إلى 3 سنوات',
+  'بطيئة جداً - 3 إلى 5 سنوات',
+  'تطلب عند الحاجة',
+  'Obsolete - منتهية',
 ];
 
 export default function MasterItemsTable({ items, fileId }) {
