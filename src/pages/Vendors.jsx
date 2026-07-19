@@ -3,12 +3,27 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import VendorDialog from '@/components/VendorDialog';
-import { Plus, Building2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
 
 export default function Vendors() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [deleteVendor, setDeleteVendor] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
   const load = async () => {
     setLoading(true);
@@ -23,14 +38,38 @@ export default function Vendors() {
 
   useEffect(() => { load(); }, []);
 
+  const handleAdd = () => {
+    setEditingVendor(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (vendor) => {
+    setEditingVendor(vendor);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteVendor) return;
+    setDeleting(true);
+    try {
+      await base44.entities.Vendor.delete(deleteVendor.id);
+      toast({ title: 'Deleted', description: `${deleteVendor.name} has been removed` });
+      setDeleteVendor(null);
+      load();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete vendor', variant: 'destructive' });
+    }
+    setDeleting(false);
+  };
+
   return (
     <div className="p-8 space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Vendors</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage vendor profiles</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage vendor profiles — item codes are tied to each vendor</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={handleAdd}>
           <Plus className="w-4 h-4 mr-2" /> Add Vendor
         </Button>
       </div>
@@ -52,16 +91,46 @@ export default function Vendors() {
               <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: v.color + '20' }}>
                 <Building2 className="w-5 h-5" style={{ color: v.color }} />
               </div>
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{v.name}</p>
                 {v.description && <p className="text-xs text-muted-foreground truncate">{v.description}</p>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(v)}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeleteVendor(v)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      <VendorDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={load} />
+      <VendorDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSaved={load}
+        vendor={editingVendor}
+      />
+
+      <AlertDialog open={!!deleteVendor} onOpenChange={(open) => !open && setDeleteVendor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Vendor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteVendor?.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,22 @@ import { useToast } from '@/components/ui/use-toast';
 
 const COLORS = ['#1E3A5F', '#6366F1', '#0EA5E9', '#F59E0B', '#EF4444', '#22C55E', '#8B5CF6', '#EC4899'];
 
-export default function VendorDialog({ open, onClose, onSaved }) {
+export default function VendorDialog({ open, onClose, onSaved, vendor }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  const isEditing = !!vendor;
+
+  useEffect(() => {
+    if (open) {
+      setName(vendor?.name || '');
+      setDescription(vendor?.description || '');
+      setColor(vendor?.color || COLORS[0]);
+    }
+  }, [open, vendor]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -22,19 +32,23 @@ export default function VendorDialog({ open, onClose, onSaved }) {
     }
     setSaving(true);
     try {
-      const vendor = await base44.entities.Vendor.create({
+      const payload = {
         name: name.trim(),
         description: description.trim(),
         color,
-      });
-      toast({ title: 'Success', description: 'Vendor created successfully' });
-      onSaved(vendor);
-      setName('');
-      setDescription('');
-      setColor(COLORS[0]);
+      };
+      let saved;
+      if (isEditing) {
+        saved = await base44.entities.Vendor.update(vendor.id, payload);
+        toast({ title: 'Success', description: 'Vendor updated successfully' });
+      } else {
+        saved = await base44.entities.Vendor.create(payload);
+        toast({ title: 'Success', description: 'Vendor created successfully' });
+      }
+      onSaved(saved);
       onClose();
     } catch (err) {
-      toast({ title: 'Error', description: 'Failed to create vendor', variant: 'destructive' });
+      toast({ title: 'Error', description: isEditing ? 'Failed to update vendor' : 'Failed to create vendor', variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -43,7 +57,7 @@ export default function VendorDialog({ open, onClose, onSaved }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Vendor</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -72,7 +86,7 @@ export default function VendorDialog({ open, onClose, onSaved }) {
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Vendor'}
+            {saving ? 'Saving...' : isEditing ? 'Update Vendor' : 'Save Vendor'}
           </Button>
         </DialogFooter>
       </DialogContent>
