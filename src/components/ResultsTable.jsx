@@ -1,29 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Download, PackageX, ArrowDownCircle, CheckCircle2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Download, PackageX, ArrowDownCircle, CheckCircle2, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
+import { exportPurchaseExcel, exportPurchasePDF } from '@/lib/exportUtils';
 
 export default function ResultsTable({ results, vendorName }) {
   const purchaseItems = results.filter(r => r.status !== 'unknown');
   const unknownItems = results.filter(r => r.status === 'unknown');
 
-  const handleExport = () => {
-    const data = purchaseItems.map(r => ({
-      'Item Code': r.item_code,
-      'Description': r.description,
-      'Current Stock': r.current_stock,
-      'Minimum Stock': r.minimum_stock,
-      'Recommended Quantity': r.recommended_quantity,
-      'Status': r.status === 'critical' ? 'Critical' : 'Low',
-      'Matched Via': r.matched_via === 'mediserv_code' ? 'Mediserv Code' : 'Manufacturer Code',
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 10 }, { wch: 18 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Purchase Recommendations');
-    const dateStr = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `purchase_recommendations_${vendorName || 'vendor'}_${dateStr}.xlsx`);
-  };
+  const handleExportExcel = () => exportPurchaseExcel(purchaseItems, vendorName);
+  const handleExportPDF = () => exportPurchasePDF(purchaseItems, vendorName);
 
   const statusStyle = (status) => {
     if (status === 'critical') return 'bg-red-50 text-red-700 border-red-200';
@@ -41,9 +27,22 @@ export default function ResultsTable({ results, vendorName }) {
               <h3 className="font-semibold">Purchase Recommendations</h3>
               <span className="text-sm text-muted-foreground">({purchaseItems.length} items)</span>
             </div>
-            <Button onClick={handleExport} size="sm" variant="outline">
-              <Download className="w-4 h-4 mr-1.5" /> Export Excel
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Download className="w-4 h-4 mr-1.5" /> Export
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportExcel} className="cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" /> Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
+                  <FileText className="w-4 h-4 mr-2 text-red-600" /> PDF (.pdf)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
