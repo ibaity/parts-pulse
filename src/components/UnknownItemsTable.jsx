@@ -59,6 +59,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
         minimum_stock: Number(edit.minimum_stock) || 0,
         category: edit.category || '',
       });
+      await base44.entities.AnalysisItem.update(itemId, { matched_via: 'mediserv_code' });
       toast({ title: 'Saved', description: 'Item added to master list' });
       setEdits(prev => { const c = { ...prev }; delete c[itemId]; return c; });
       onSaved(itemId);
@@ -83,6 +84,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved }) {
           minimum_stock: Number(edit.minimum_stock) || 0,
           category: edit.category || '',
         });
+        await base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' });
         onSaved(id);
       }
       toast({ title: 'Saved', description: `${ids.length} item(s) added to master list` });
