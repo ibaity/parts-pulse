@@ -3,8 +3,9 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Save, Loader2, Check } from 'lucide-react';
+import { Search, Save, Loader2, Trash2 } from 'lucide-react';
 
 const CATEGORIES = [
   'High Rotation',
@@ -14,10 +15,12 @@ const CATEGORIES = [
   'Obsolete',
 ];
 
-export default function MasterItemsTable({ items, fileId }) {
+export default function MasterItemsTable({ items, fileId, onDeleted }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
 
   const filtered = useMemo(() => {
@@ -79,6 +82,21 @@ export default function MasterItemsTable({ items, fileId }) {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await base44.entities.MasterItem.delete(deleteTarget.id);
+      toast({ title: 'Deleted', description: 'Item removed from master list' });
+      setEdits(prev => { const c = { ...prev }; delete c[deleteTarget.id]; return c; });
+      onDeleted?.(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete item', variant: 'destructive' });
+    }
+    setDeleting(false);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -108,6 +126,7 @@ export default function MasterItemsTable({ items, fileId }) {
               <th className="text-left p-2 font-medium whitespace-nowrap">Description</th>
               <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>
               <th className="text-right p-2 font-medium whitespace-nowrap">Min Stock</th>
+              <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
@@ -160,6 +179,16 @@ export default function MasterItemsTable({ items, fileId }) {
                       onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
                     />
                   </td>
+                  <td className="p-1 text-center">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteTarget(item)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
@@ -172,6 +201,27 @@ export default function MasterItemsTable({ items, fileId }) {
       <p className="text-xs text-muted-foreground">
         {filtered.length} of {items.length} items · Click any cell to edit · Changes highlighted in amber
       </p>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.description || deleteTarget?.mediserv_item_code || 'this item'}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

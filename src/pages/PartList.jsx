@@ -98,7 +98,7 @@ export default function PartList() {
               {masterItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
               ) : (
-                <MasterItemsTable items={masterItems} />
+                <MasterItemsTable items={masterItems} onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))} />
               )}
             </Card>
           </>
