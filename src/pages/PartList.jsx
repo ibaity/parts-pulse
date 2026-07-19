@@ -45,7 +45,7 @@ export default function PartList() {
   }, [selectedVendor]);
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl">
+    <div className="p-6 space-y-6 w-full max-w-[1600px]">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Part List</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage all parts and classify unknown items from PDF reports</p>
@@ -71,14 +71,16 @@ export default function PartList() {
             <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
           </div>
         ) : (
-          <>
-            {unknownItems.length > 0 && (
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                  <h2 className="text-lg font-semibold">Unknown Items ({unknownItems.length})</h2>
-                </div>
-                <p className="text-xs text-muted-foreground mb-4">Items from PDF reports not matched in the master list — classify and save them to the master.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                <h2 className="text-lg font-semibold">Unknown Items ({unknownItems.length})</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">Items from PDF reports not matched — classify and save to master.</p>
+              {unknownItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No unknown items. All matched!</p>
+              ) : (
                 <UnknownItemsTable
                   items={unknownItems}
                   vendorId={selectedVendor}
@@ -87,21 +89,22 @@ export default function PartList() {
                     setMasterItems(prev => [...prev]);
                   }}
                 />
-              </Card>
-            )}
+              )}
+            </Card>
 
             <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-1">
                 <PackageSearch className="w-5 h-5 text-primary shrink-0" />
                 <h2 className="text-lg font-semibold">Master Items ({masterItems.length})</h2>
               </div>
+              <p className="text-xs text-muted-foreground mb-4">All classified parts in the master list.</p>
               {masterItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
               ) : (
                 <MasterItemsTable items={masterItems} onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))} />
               )}
             </Card>
-          </>
+          </div>
         )
       )}
     </div>
