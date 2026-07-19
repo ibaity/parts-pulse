@@ -28,6 +28,11 @@
       "type": "number",
       "title": "Minimum Stock",
       "default": 0
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "default": ""
     }
   },
   "required": [

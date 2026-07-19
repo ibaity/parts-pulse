@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MasterFileUploader from '@/components/MasterFileUploader';
+import MasterItemsTable from '@/components/MasterItemsTable';
 import { FileSpreadsheet, ChevronDown, ChevronRight } from 'lucide-react';
 import moment from 'moment';
 
@@ -129,27 +130,8 @@ export default function MasterFiles() {
                             <div className="w-6 h-6 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
                           </div>
                         ) : (
-                          <div className="overflow-auto max-h-96">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted/50 sticky top-0">
-                                <tr>
-                                  <th className="text-left p-2 font-medium">Mediserv Code</th>
-                                  <th className="text-left p-2 font-medium">Manufacturer Code</th>
-                                  <th className="text-left p-2 font-medium">Description</th>
-                                  <th className="text-right p-2 font-medium">Min Stock</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {fileItems.map(item => (
-                                  <tr key={item.id} className="border-b hover:bg-muted/30">
-                                    <td className="p-2 font-mono text-xs">{item.mediserv_item_code || '-'}</td>
-                                    <td className="p-2 font-mono text-xs">{item.manufacturer_item_code || '-'}</td>
-                                    <td className="p-2 max-w-[300px] truncate">{item.description || '-'}</td>
-                                    <td className="p-2 text-right font-medium">{item.minimum_stock}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div className="p-3">
+                            <MasterItemsTable items={fileItems} fileId={expandedFile} />
                           </div>
                         )}
                       </div>
