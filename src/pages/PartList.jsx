@@ -57,7 +57,7 @@ export default function PartList() {
   }, [selectedVendor]);
 
   return (
-    <div className="p-6 space-y-6 w-full max-w-[1600px]">
+    <div className="p-4 sm:p-6 space-y-6 w-full max-w-[1600px]">
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
           <PackageSearch className="w-6 h-6 text-primary" />
@@ -90,7 +90,7 @@ export default function PartList() {
         ) : (
           <>
             {/* Pill Tab Bar */}
-            <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1 border">
+            <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1 border overflow-x-auto max-w-full">
               {TABS.map(tab => {
                 const Icon = tab.icon;
                 const count = tab.key === 'unknown' ? unknownItems.length : masterItems.length;

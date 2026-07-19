@@ -96,7 +96,7 @@ export default function Analysis() {
   const selectedVendorObj = vendors.find(v => v.id === selectedVendor);
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl">
+    <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analysis</h1>
         <p className="text-sm text-muted-foreground mt-1">Upload a PDF inventory report and get purchase recommendations</p>

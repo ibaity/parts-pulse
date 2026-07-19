@@ -68,7 +68,7 @@ export default function Warehouses() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-4xl">
+    <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Warehouses</h1>
         <p className="text-sm text-muted-foreground mt-1">Define warehouses once. Enabled warehouses are included in stock calculations for all vendors.</p>
@@ -76,12 +76,12 @@ export default function Warehouses() {
 
       <Card className="p-5">
         <h3 className="text-sm font-semibold mb-3">Add New Warehouse</h3>
-        <div className="flex gap-3 items-end">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
           <div className="flex-1 space-y-1">
             <Label className="text-xs">Location / Name</Label>
             <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Riyadh Main Store" className="h-9" />
           </div>
-          <div className="w-32 space-y-1">
+          <div className="w-full sm:w-32 space-y-1">
             <Label className="text-xs">Code</Label>
             <Input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="RUH" className="h-9" />
           </div>
@@ -103,6 +103,7 @@ export default function Warehouses() {
         </Card>
       ) : (
         <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -139,6 +140,7 @@ export default function Warehouses() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>
