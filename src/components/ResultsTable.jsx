@@ -5,14 +5,24 @@ import { Download, PackageX, ArrowDownCircle, CheckCircle2, FileSpreadsheet, Fil
 import { exportPurchaseExcel, exportPurchasePDF } from '@/lib/exportUtils';
 import { getCurrencySymbol } from '@/lib/partConstants';
 
-export default function ResultsTable({ results, vendorName, currency }) {
+export default function ResultsTable({ results, vendorName, currency, manualItems = [] }) {
   const purchaseItems = results.filter(r => r.status !== 'unknown');
   const unknownItems = results.filter(r => r.status === 'unknown');
   const symbol = getCurrencySymbol(currency);
-  const grandTotal = purchaseItems.reduce((sum, r) => sum + (Number(r.unit_price) || 0) * (r.recommended_quantity || 0), 0);
+  const normalizedManual = manualItems.map(m => ({
+    item_code: m.item_code || '',
+    description: m.description || '',
+    current_stock: '-',
+    minimum_stock: 0,
+    recommended_quantity: Number(m.quantity) || 0,
+    unit_price: Number(m.unit_price) || 0,
+    status: 'manual',
+  }));
+  const allPurchaseItems = [...purchaseItems, ...normalizedManual];
+  const grandTotal = allPurchaseItems.reduce((sum, r) => sum + (Number(r.unit_price) || 0) * (r.recommended_quantity || 0), 0);
 
-  const handleExportExcel = () => exportPurchaseExcel(purchaseItems, vendorName, currency);
-  const handleExportPDF = () => exportPurchasePDF(purchaseItems, vendorName, currency);
+  const handleExportExcel = () => exportPurchaseExcel(allPurchaseItems, vendorName, currency);
+  const handleExportPDF = () => exportPurchasePDF(allPurchaseItems, vendorName, currency);
 
   const statusStyle = (status) => {
     if (status === 'critical') return 'bg-red-50 text-red-700 border-red-200';

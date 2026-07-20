@@ -1,0 +1,36 @@
+{
+  "name": "ManualOrderItem",
+  "type": "object",
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "item_code": {
+      "type": "string",
+      "title": "Item Code"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "quantity": {
+      "type": "number",
+      "title": "Quantity",
+      "default": 1
+    },
+    "unit_price": {
+      "type": "number",
+      "title": "Unit Price",
+      "default": 0
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "vendor_id"
+  ]
+}

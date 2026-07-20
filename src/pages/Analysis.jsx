@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AnalysisRunner from '@/components/AnalysisRunner';
 import ResultsTable from '@/components/ResultsTable';
+import ManualOrderPanel from '@/components/ManualOrderPanel';
 import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { useToast } from '@/components/ui/use-toast';
 import { FileText, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
@@ -19,6 +20,7 @@ export default function Analysis() {
   const [rerunId, setRerunId] = useState(null);
   const [rerunStep, setRerunStep] = useState('');
   const [fileCurrency, setFileCurrency] = useState('SAR');
+  const [manualItems, setManualItems] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -29,21 +31,42 @@ export default function Analysis() {
     load();
   }, []);
 
+  const loadManualItems = async () => {
+    if (!selectedVendor) return;
+    try {
+      const data = await base44.entities.ManualOrderItem.filter({ vendor_id: selectedVendor }, '-created_date', 200);
+      setManualItems(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const loadRuns = async () => {
     if (!selectedVendor) return;
     const data = await base44.entities.AnalysisRun.filter({ vendor_id: selectedVendor }, '-created_date', 20);
     setRuns(data);
+    if (data.length > 0 && data[0].status === 'completed') {
+      try {
+        const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: data[0].id }, '-recommended_quantity', 500);
+        setResults(items);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   useEffect(() => {
     if (selectedVendor) {
-      setResults(null);
       loadRuns();
+      loadManualItems();
       base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100)
         .then(files => {
           if (files.length > 0 && files[0].currency) setFileCurrency(files[0].currency);
         })
         .catch(() => {});
+    } else {
+      setResults(null);
+      setManualItems([]);
     }
   }, [selectedVendor]);
 
@@ -129,8 +152,22 @@ export default function Analysis() {
             onAnalysisComplete={handleAnalysisComplete}
           />
 
+          <ManualOrderPanel
+            vendorId={selectedVendor}
+            currency={fileCurrency}
+            items={manualItems}
+            onAdded={loadManualItems}
+            onDeleted={(id) => setManualItems(prev => prev.filter(i => i.id !== id))}
+            onUpdated={loadManualItems}
+          />
+
           {results && (
-            <ResultsTable results={results} vendorName={selectedVendorObj?.name} currency={fileCurrency} />
+            <ResultsTable
+              results={results}
+              vendorName={selectedVendorObj?.name}
+              currency={fileCurrency}
+              manualItems={manualItems}
+            />
           )}
 
           {runs.length > 0 && (

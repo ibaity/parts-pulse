@@ -15,7 +15,7 @@ export function exportPurchaseExcel(purchaseItems, vendorName, currency) {
       'Recommended Qty': r.recommended_quantity,
       [`Unit Price (${symbol})`]: price,
       [`Total (${symbol})`]: total,
-      'Status': r.status === 'critical' ? 'Critical' : 'Low',
+      'Status': r.status === 'critical' ? 'Critical' : r.status === 'manual' ? 'Manual' : 'Low',
     };
   });
   const ws = XLSX.utils.json_to_sheet(data);
@@ -111,7 +111,7 @@ export function exportPurchasePDF(purchaseItems, vendorName, currency) {
     columns.forEach(col => {
       let val = String(item[col.key] ?? '');
       if (col.key === 'status') {
-        val = item.status === 'critical' ? 'Critical' : 'Low';
+        val = item.status === 'critical' ? 'Critical' : item.status === 'manual' ? 'Manual' : 'Low';
       }
       if (col.key === 'unit_price') {
         val = price > 0 ? price.toLocaleString() : '-';
