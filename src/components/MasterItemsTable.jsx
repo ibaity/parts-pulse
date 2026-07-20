@@ -24,6 +24,7 @@ const COLUMN_DEFS = [
   { key: 'description', label: 'Description' },
   { key: 'category', label: 'Category' },
   { key: 'minimum_stock', label: 'Min Stock' },
+  { key: 'unit', label: 'Unit' },
 ];
 
 export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) {
@@ -38,6 +39,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
     description: true,
     category: true,
     minimum_stock: true,
+    unit: true,
   });
   const { toast } = useToast();
 
@@ -48,7 +50,8 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
       (i.mediserv_item_code || '').toLowerCase().includes(q) ||
       (i.manufacturer_item_code || '').toLowerCase().includes(q) ||
       (i.description || '').toLowerCase().includes(q) ||
-      (i.category || '').toLowerCase().includes(q)
+      (i.category || '').toLowerCase().includes(q) ||
+      (i.unit || '').toLowerCase().includes(q)
     );
   }, [items, search]);
 
@@ -171,6 +174,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
               {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.category && <SortHeader label="Category" sortKey="category" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
+              {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
@@ -231,6 +235,15 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
                         className="w-20 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
                         value={getValue(item, 'minimum_stock')}
                         onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
+                      />
+                    </td>
+                  )}
+                  {visibleCols.unit && (
+                    <td className="p-1">
+                      <input
+                        className="w-20 bg-transparent rounded px-1 py-1 text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                        value={getValue(item, 'unit')}
+                        onChange={e => updateField(item.id, 'unit', e.target.value)}
                       />
                     </td>
                   )}

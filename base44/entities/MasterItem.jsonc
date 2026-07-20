@@ -33,6 +33,11 @@
       "type": "string",
       "title": "Category",
       "default": ""
+    },
+    "unit": {
+      "type": "string",
+      "title": "Unit",
+      "default": ""
     }
   },
   "required": [

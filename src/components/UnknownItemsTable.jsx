@@ -25,6 +25,7 @@ const COLUMN_DEFS = [
   { key: 'description', label: 'Description' },
   { key: 'category', label: 'Category' },
   { key: 'minimum_stock', label: 'Min Stock' },
+  { key: 'unit', label: 'Unit' },
 ];
 
 export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted }) {
@@ -40,6 +41,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
     description: true,
     category: true,
     minimum_stock: true,
+    unit: true,
   });
   const { toast } = useToast();
 
@@ -83,6 +85,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
         description: edit.description ?? item.description ?? '',
         minimum_stock: Number(edit.minimum_stock) || 0,
         category: edit.category || '',
+        unit: edit.unit || '',
       });
       await base44.entities.AnalysisItem.update(itemId, { matched_via: 'mediserv_code' });
       toast({ title: 'Saved', description: 'Item added to master list' });
@@ -123,6 +126,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
           description: edit.description ?? item.description ?? '',
           minimum_stock: Number(edit.minimum_stock) || 0,
           category: edit.category || '',
+          unit: edit.unit || '',
         });
         await base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' });
         onSaved(id);
@@ -207,6 +211,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
               {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
+              {visibleCols.unit && <th className="text-left p-2 font-medium whitespace-nowrap">Unit</th>}
               <th className="text-center p-2 font-medium whitespace-nowrap">Save</th>
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
@@ -268,6 +273,16 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
                       className="w-20 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
                       value={getValue(item, 'minimum_stock')}
                       onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
+                    />
+                  </td>
+                )}
+                {visibleCols.unit && (
+                  <td className="p-1">
+                    <input
+                      className="w-20 bg-transparent rounded px-1 py-1 text-xs focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      placeholder="—"
+                      value={getValue(item, 'unit')}
+                      onChange={e => updateField(item.id, 'unit', e.target.value)}
                     />
                   </td>
                 )}
