@@ -15,6 +15,7 @@ export default function DeviceModelDialog({ open, onOpenChange, editing, onSaved
   const [manufacturer, setManufacturer] = useState('');
   const [category, setCategory] = useState('Other');
   const [description, setDescription] = useState('');
+  const [vendors, setVendors] = useState([]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -24,6 +25,7 @@ export default function DeviceModelDialog({ open, onOpenChange, editing, onSaved
       setManufacturer(editing?.manufacturer || '');
       setCategory(editing?.category || 'Other');
       setDescription(editing?.description || '');
+      base44.entities.Vendor.list('-created_date', 200).then(setVendors).catch(() => {});
     }
   }, [open, editing]);
 
@@ -59,7 +61,14 @@ export default function DeviceModelDialog({ open, onOpenChange, editing, onSaved
           </div>
           <div className="space-y-1.5">
             <Label>Manufacturer</Label>
-            <Input value={manufacturer} onChange={e => setManufacturer(e.target.value)} placeholder="e.g. GE Healthcare" />
+            <Select value={manufacturer} onValueChange={setManufacturer}>
+              <SelectTrigger><SelectValue placeholder="Select vendor / company..." /></SelectTrigger>
+              <SelectContent>
+                {vendors.map(v => (
+                  <SelectItem key={v.id} value={v.name}>{v.name}{v.manufacturer_code ? ` (${v.manufacturer_code})` : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Category</Label>

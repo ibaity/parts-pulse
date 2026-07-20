@@ -11,6 +11,7 @@ const COLORS = ['#1E3A5F', '#6366F1', '#0EA5E9', '#F59E0B', '#EF4444', '#22C55E'
 export default function VendorDialog({ open, onClose, onSaved, vendor }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [manufacturerCode, setManufacturerCode] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -21,6 +22,7 @@ export default function VendorDialog({ open, onClose, onSaved, vendor }) {
     if (open) {
       setName(vendor?.name || '');
       setDescription(vendor?.description || '');
+      setManufacturerCode(vendor?.manufacturer_code || '');
       setColor(vendor?.color || COLORS[0]);
     }
   }, [open, vendor]);
@@ -35,6 +37,7 @@ export default function VendorDialog({ open, onClose, onSaved, vendor }) {
       const payload = {
         name: name.trim(),
         description: description.trim(),
+        manufacturer_code: manufacturerCode.trim(),
         color,
       };
       let saved;
@@ -63,6 +66,10 @@ export default function VendorDialog({ open, onClose, onSaved, vendor }) {
           <div className="space-y-2">
             <Label>Vendor Name *</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. IMMUCOR" />
+          </div>
+          <div className="space-y-2">
+            <Label>Manufacturer Code</Label>
+            <Input value={manufacturerCode} onChange={e => setManufacturerCode(e.target.value)} placeholder="e.g. GE-001" />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>

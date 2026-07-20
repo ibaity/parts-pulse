@@ -93,6 +93,9 @@ export default function Vendors() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{v.name}</p>
+                {v.manufacturer_code && (
+                  <p className="text-xs text-muted-foreground truncate font-mono">Code: {v.manufacturer_code}</p>
+                )}
                 {v.description && <p className="text-xs text-muted-foreground truncate">{v.description}</p>}
               </div>
               <div className="flex items-center gap-1 shrink-0">

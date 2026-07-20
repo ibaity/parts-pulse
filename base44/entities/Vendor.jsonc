@@ -10,6 +10,10 @@
       "type": "string",
       "title": "Description"
     },
+    "manufacturer_code": {
+      "type": "string",
+      "title": "Manufacturer Code"
+    },
     "color": {
       "type": "string",
       "title": "Color",
