@@ -18,6 +18,8 @@ const REQUIRED_FIELDS = [
 
 const OPTIONAL_FIELDS = [
   { key: 'unit_price', label: 'Unit Price' },
+  { key: 'category', label: 'Category' },
+  { key: 'unit', label: 'Unit' },
 ];
 
 const CHUNK_SIZE = 500;
@@ -110,6 +112,8 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         const desc = mapping.description ? String(row[mapping.description] ?? '') : '';
         const minStock = mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0;
         const price = mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0;
+        const category = mapping.category ? String(row[mapping.category] ?? '') : '';
+        const unit = mapping.unit ? String(row[mapping.unit] ?? '') : '';
 
         const existing = (mediservCode && lookup.get(normalize(mediservCode))) || (manufacturerCode && lookup.get(normalize(manufacturerCode)));
 
@@ -122,6 +126,8 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
             description: desc || existing.description,
             minimum_stock: minStock || existing.minimum_stock,
             unit_price: price || existing.unit_price,
+            category: category || existing.category,
+            unit: unit || existing.unit,
           });
           mergedCount++;
         } else {
@@ -133,6 +139,8 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
             description: desc,
             minimum_stock: minStock,
             unit_price: price,
+            category,
+            unit,
           });
           newCount++;
         }
