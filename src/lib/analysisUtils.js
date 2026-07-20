@@ -79,6 +79,7 @@ export function runAnalysis(pdfItems, masterItems, enabledWarehouses) {
           current_stock: currentStock,
           minimum_stock: minStock,
           recommended_quantity: minStock - currentStock,
+          unit_price: Number(masterItem.unit_price) || 0,
           status: currentStock === 0 ? 'critical' : 'low',
           matched_via: matchedVia,
           warehouse_breakdown: warehouseBreakdown,

@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
-import { PART_CATEGORIES, getCurrencySymbol } from '@/lib/partConstants';
+import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
   { key: 'mediserv_item_code', label: 'Mediserv Code' },
@@ -42,13 +42,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
 
   const filtered = useMemo(() => {
     if (!search.trim()) return items;
-    const q = search.toLowerCase();
     return items.filter(i =>
-      (i.mediserv_item_code || '').toLowerCase().includes(q) ||
-      (i.manufacturer_item_code || '').toLowerCase().includes(q) ||
-      (i.description || '').toLowerCase().includes(q) ||
-      (i.category || '').toLowerCase().includes(q) ||
-      (i.unit || '').toLowerCase().includes(q)
+      fuzzyMatch(search, i.mediserv_item_code) ||
+      fuzzyMatch(search, i.manufacturer_item_code) ||
+      fuzzyMatch(search, i.description) ||
+      fuzzyMatch(search, i.category) ||
+      fuzzyMatch(search, i.unit)
     );
   }, [items, search]);
 

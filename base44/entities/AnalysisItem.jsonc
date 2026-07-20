@@ -35,6 +35,11 @@
       "title": "Recommended Quantity",
       "default": 0
     },
+    "unit_price": {
+      "type": "number",
+      "title": "Unit Price",
+      "default": 0
+    },
     "status": {
       "type": "string",
       "title": "Status",

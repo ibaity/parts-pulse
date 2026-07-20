@@ -91,21 +91,61 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         item_count: rows.length,
       });
 
-      const items = rows.map(row => ({
-        master_file_id: masterFile.id,
-        vendor_id: vendorId,
-        mediserv_item_code: mapping.mediserv_item_code ? String(row[mapping.mediserv_item_code] ?? '') : '',
-        manufacturer_item_code: mapping.manufacturer_item_code ? String(row[mapping.manufacturer_item_code] ?? '') : '',
-        description: mapping.description ? String(row[mapping.description] ?? '') : '',
-        minimum_stock: mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0,
-        unit_price: mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0,
-      }));
+      const existingItems = await base44.entities.MasterItem.filter({ vendor_id: vendorId }, '-created_date', 500);
+      const normalize = (s) => (s || '').toLowerCase().trim();
+      const lookup = new Map();
+      existingItems.forEach(item => {
+        if (item.mediserv_item_code) lookup.set(normalize(item.mediserv_item_code), item);
+        if (item.manufacturer_item_code) lookup.set(normalize(item.manufacturer_item_code), item);
+      });
 
-      for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-        await base44.entities.MasterItem.bulkCreate(items.slice(i, i + CHUNK_SIZE));
+      const toCreate = [];
+      const toUpdate = [];
+      let mergedCount = 0;
+      let newCount = 0;
+
+      rows.forEach(row => {
+        const mediservCode = mapping.mediserv_item_code ? String(row[mapping.mediserv_item_code] ?? '') : '';
+        const manufacturerCode = mapping.manufacturer_item_code ? String(row[mapping.manufacturer_item_code] ?? '') : '';
+        const desc = mapping.description ? String(row[mapping.description] ?? '') : '';
+        const minStock = mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0;
+        const price = mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0;
+
+        const existing = (mediservCode && lookup.get(normalize(mediservCode))) || (manufacturerCode && lookup.get(normalize(manufacturerCode)));
+
+        if (existing) {
+          toUpdate.push({
+            id: existing.id,
+            master_file_id: masterFile.id,
+            mediserv_item_code: mediservCode || existing.mediserv_item_code,
+            manufacturer_item_code: manufacturerCode || existing.manufacturer_item_code,
+            description: desc || existing.description,
+            minimum_stock: minStock || existing.minimum_stock,
+            unit_price: price || existing.unit_price,
+          });
+          mergedCount++;
+        } else {
+          toCreate.push({
+            master_file_id: masterFile.id,
+            vendor_id: vendorId,
+            mediserv_item_code: mediservCode,
+            manufacturer_item_code: manufacturerCode,
+            description: desc,
+            minimum_stock: minStock,
+            unit_price: price,
+          });
+          newCount++;
+        }
+      });
+
+      for (let i = 0; i < toCreate.length; i += CHUNK_SIZE) {
+        await base44.entities.MasterItem.bulkCreate(toCreate.slice(i, i + CHUNK_SIZE));
+      }
+      for (let i = 0; i < toUpdate.length; i += CHUNK_SIZE) {
+        await base44.entities.MasterItem.bulkUpdate(toUpdate.slice(i, i + CHUNK_SIZE));
       }
 
-      toast({ title: 'Success', description: `${items.length} items imported successfully` });
+      toast({ title: 'Success', description: `${newCount} new items added · ${mergedCount} existing items updated` });
       reset();
       onUploaded();
     } catch (err) {

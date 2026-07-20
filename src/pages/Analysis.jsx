@@ -18,6 +18,7 @@ export default function Analysis() {
   const [loadingRun, setLoadingRun] = useState(null);
   const [rerunId, setRerunId] = useState(null);
   const [rerunStep, setRerunStep] = useState('');
+  const [fileCurrency, setFileCurrency] = useState('SAR');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,6 +39,11 @@ export default function Analysis() {
     if (selectedVendor) {
       setResults(null);
       loadRuns();
+      base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100)
+        .then(files => {
+          if (files.length > 0 && files[0].currency) setFileCurrency(files[0].currency);
+        })
+        .catch(() => {});
     }
   }, [selectedVendor]);
 
@@ -124,7 +130,7 @@ export default function Analysis() {
           />
 
           {results && (
-            <ResultsTable results={results} vendorName={selectedVendorObj?.name} />
+            <ResultsTable results={results} vendorName={selectedVendorObj?.name} currency={fileCurrency} />
           )}
 
           {runs.length > 0 && (

@@ -5,7 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
-import { PackageSearch, AlertCircle } from 'lucide-react';
+import MasterItemDialog from '@/components/MasterItemDialog';
+import { Button } from '@/components/ui/button';
+import { PackageSearch, AlertCircle, Plus } from 'lucide-react';
 
 const TABS = [
   { key: 'master', label: 'Master Items', icon: PackageSearch },
@@ -21,6 +23,7 @@ export default function PartList() {
   const [fileCurrency, setFileCurrency] = useState('SAR');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
+  const [addPartOpen, setAddPartOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -140,6 +143,11 @@ export default function PartList() {
                 </>
               ) : (
                 <>
+                  <div className="flex justify-end mb-3">
+                    <Button size="sm" onClick={() => setAddPartOpen(true)}>
+                      <Plus className="w-4 h-4 mr-1" /> Add Part
+                    </Button>
+                  </div>
                   {masterItems.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-8 text-center">No master items yet. Upload a master file first.</p>
                   ) : (
@@ -168,6 +176,16 @@ export default function PartList() {
           </>
         )
       )}
+
+      <MasterItemDialog
+        open={addPartOpen}
+        onOpenChange={setAddPartOpen}
+        vendorId={selectedVendor}
+        currency={fileCurrency}
+        onSaved={() => {
+          base44.entities.MasterItem.filter({ vendor_id: selectedVendor }, '-created_date', 500).then(setMasterItems);
+        }}
+      />
     </div>
   );
 }

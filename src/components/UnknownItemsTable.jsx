@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Columns3, Check, Trash2, Loader2 } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
-import { PART_CATEGORIES } from '@/lib/partConstants';
+import { PART_CATEGORIES, fuzzyMatch } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
   { key: 'item_code', label: 'PDF Code' },
@@ -42,10 +42,9 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
 
   const filtered = useMemo(() => {
     if (!search.trim()) return items;
-    const q = search.toLowerCase();
     return items.filter(i =>
-      (i.item_code || '').toLowerCase().includes(q) ||
-      (i.description || '').toLowerCase().includes(q)
+      fuzzyMatch(search, i.item_code) ||
+      fuzzyMatch(search, i.description)
     );
   }, [items, search]);
 

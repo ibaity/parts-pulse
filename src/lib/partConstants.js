@@ -19,3 +19,16 @@ export const CURRENCIES = [
 export function getCurrencySymbol(code) {
   return CURRENCIES.find(c => c.code === code)?.symbol || code || '';
 }
+
+export function fuzzyMatch(query, target) {
+  if (!query) return true;
+  if (!target) return false;
+  const q = query.toLowerCase().trim();
+  const t = String(target).toLowerCase();
+  if (t.includes(q)) return true;
+  let qi = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}

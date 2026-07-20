@@ -3,13 +3,16 @@ import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Download, PackageX, ArrowDownCircle, CheckCircle2, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
 import { exportPurchaseExcel, exportPurchasePDF } from '@/lib/exportUtils';
+import { getCurrencySymbol } from '@/lib/partConstants';
 
-export default function ResultsTable({ results, vendorName }) {
+export default function ResultsTable({ results, vendorName, currency }) {
   const purchaseItems = results.filter(r => r.status !== 'unknown');
   const unknownItems = results.filter(r => r.status === 'unknown');
+  const symbol = getCurrencySymbol(currency);
+  const grandTotal = purchaseItems.reduce((sum, r) => sum + (Number(r.unit_price) || 0) * (r.recommended_quantity || 0), 0);
 
-  const handleExportExcel = () => exportPurchaseExcel(purchaseItems, vendorName);
-  const handleExportPDF = () => exportPurchasePDF(purchaseItems, vendorName);
+  const handleExportExcel = () => exportPurchaseExcel(purchaseItems, vendorName, currency);
+  const handleExportPDF = () => exportPurchasePDF(purchaseItems, vendorName, currency);
 
   const statusStyle = (status) => {
     if (status === 'critical') return 'bg-red-50 text-red-700 border-red-200';
@@ -17,15 +20,25 @@ export default function ResultsTable({ results, vendorName }) {
     return '';
   };
 
+  const formatPrice = (val) => {
+    const n = Number(val) || 0;
+    return n > 0 ? n.toLocaleString() : '-';
+  };
+
   return (
     <div className="space-y-6">
       {purchaseItems.length > 0 && (
         <Card className="overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <ArrowDownCircle className="w-5 h-5 text-amber-600" />
               <h3 className="font-semibold">Purchase Recommendations</h3>
               <span className="text-sm text-muted-foreground">({purchaseItems.length} items)</span>
+              {grandTotal > 0 && (
+                <span className="text-sm font-bold text-primary ml-2">
+                  Total: {symbol} {grandTotal.toLocaleString()}
+                </span>
+              )}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -52,25 +65,33 @@ export default function ResultsTable({ results, vendorName }) {
                   <th className="text-left p-3 font-medium">Description</th>
                   <th className="text-right p-3 font-medium">Current</th>
                   <th className="text-right p-3 font-medium">Min Stock</th>
-                  <th className="text-right p-3 font-medium">Recommended</th>
+                  <th className="text-right p-3 font-medium">Rec. Qty</th>
+                  <th className="text-right p-3 font-medium">Price</th>
+                  <th className="text-right p-3 font-medium">Total</th>
                   <th className="text-center p-3 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {purchaseItems.map((r, i) => (
-                  <tr key={i} className="border-b hover:bg-muted/30">
-                    <td className="p-3 font-mono text-xs">{r.item_code}</td>
-                    <td className="p-3 max-w-[300px] truncate">{r.description}</td>
-                    <td className={`p-3 text-right font-medium ${r.current_stock === 0 ? 'text-red-600' : ''}`}>{r.current_stock}</td>
-                    <td className="p-3 text-right">{r.minimum_stock}</td>
-                    <td className="p-3 text-right font-bold text-primary">{r.recommended_quantity}</td>
-                    <td className="p-3 text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${statusStyle(r.status)}`}>
-                        {r.status === 'critical' ? 'Critical' : 'Low'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {purchaseItems.map((r, i) => {
+                  const price = Number(r.unit_price) || 0;
+                  const total = price * (r.recommended_quantity || 0);
+                  return (
+                    <tr key={i} className="border-b hover:bg-muted/30">
+                      <td className="p-3 font-mono text-xs">{r.item_code}</td>
+                      <td className="p-3 max-w-[300px] truncate">{r.description}</td>
+                      <td className={`p-3 text-right font-medium ${r.current_stock === 0 ? 'text-red-600' : ''}`}>{r.current_stock}</td>
+                      <td className="p-3 text-right">{r.minimum_stock}</td>
+                      <td className="p-3 text-right font-bold text-primary">{r.recommended_quantity}</td>
+                      <td className="p-3 text-right text-xs">{symbol} {formatPrice(price)}</td>
+                      <td className="p-3 text-right text-xs font-semibold">{symbol} {formatPrice(total)}</td>
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${statusStyle(r.status)}`}>
+                          {r.status === 'critical' ? 'Critical' : 'Low'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
