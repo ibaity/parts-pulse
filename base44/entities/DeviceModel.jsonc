@@ -6,25 +6,15 @@
       "type": "string",
       "title": "Model Name"
     },
-    "manufacturer": {
+    "vendor_id": {
       "type": "string",
-      "title": "Manufacturer"
+      "title": "Vendor",
+      "relation": "Vendor"
     },
-    "category": {
+    "master_file_id": {
       "type": "string",
-      "title": "Category",
-      "enum": [
-        "MRI",
-        "CT Scanner",
-        "Ultrasound",
-        "X-Ray",
-        "Mammography",
-        "Fluoroscopy",
-        "Angiography",
-        "PET",
-        "Other"
-      ],
-      "default": "Other"
+      "title": "Master File",
+      "relation": "MasterFile"
     },
     "description": {
       "type": "string",
@@ -32,7 +22,6 @@
     }
   },
   "required": [
-    "name",
-    "category"
+    "name"
   ]
 }

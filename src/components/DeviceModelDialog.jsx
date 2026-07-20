@@ -8,36 +8,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 
-const CATEGORIES = ['MRI', 'CT Scanner', 'Ultrasound', 'X-Ray', 'Mammography', 'Fluoroscopy', 'Angiography', 'PET', 'Other'];
-
 export default function DeviceModelDialog({ open, onOpenChange, editing, onSaved }) {
   const [name, setName] = useState('');
-  const [manufacturer, setManufacturer] = useState('');
-  const [category, setCategory] = useState('Other');
+  const [vendorId, setVendorId] = useState('');
+  const [masterFileId, setMasterFileId] = useState('');
   const [description, setDescription] = useState('');
   const [vendors, setVendors] = useState([]);
+  const [masterFiles, setMasterFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       setName(editing?.name || '');
-      setManufacturer(editing?.manufacturer || '');
-      setCategory(editing?.category || 'Other');
+      setVendorId(editing?.vendor_id || '');
+      setMasterFileId(editing?.master_file_id || '');
       setDescription(editing?.description || '');
       base44.entities.Vendor.list('-created_date', 200).then(setVendors).catch(() => {});
     }
   }, [open, editing]);
 
+  useEffect(() => {
+    if (vendorId) {
+      base44.entities.MasterFile.filter({ vendor_id: vendorId }, '-created_date', 100)
+        .then(setMasterFiles)
+        .catch(() => setMasterFiles([]));
+    } else {
+      setMasterFiles([]);
+      setMasterFileId('');
+    }
+  }, [vendorId]);
+
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const payload = { name, vendor_id: vendorId, master_file_id: masterFileId, description };
       if (editing) {
-        await base44.entities.DeviceModel.update(editing.id, { name, manufacturer, category, description });
+        await base44.entities.DeviceModel.update(editing.id, payload);
         toast({ title: 'Updated', description: 'Device model updated' });
       } else {
-        await base44.entities.DeviceModel.create({ name, manufacturer, category, description });
+        await base44.entities.DeviceModel.create(payload);
         toast({ title: 'Created', description: 'Device model added' });
       }
       onOpenChange(false);
@@ -60,22 +71,30 @@ export default function DeviceModelDialog({ open, onOpenChange, editing, onSaved
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Optima CT540" />
           </div>
           <div className="space-y-1.5">
-            <Label>Manufacturer</Label>
-            <Select value={manufacturer} onValueChange={setManufacturer}>
-              <SelectTrigger><SelectValue placeholder="Select vendor / company..." /></SelectTrigger>
+            <Label>Company / Vendor</Label>
+            <Select value={vendorId} onValueChange={setVendorId}>
+              <SelectTrigger><SelectValue placeholder="Select vendor..." /></SelectTrigger>
               <SelectContent>
                 {vendors.map(v => (
-                  <SelectItem key={v.id} value={v.name}>{v.name}{v.manufacturer_code ? ` (${v.manufacturer_code})` : ''}</SelectItem>
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}{v.manufacturer_code ? ` (${v.manufacturer_code})` : ''}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>Master Sheet</Label>
+            <Select value={masterFileId} onValueChange={setMasterFileId} disabled={!vendorId}>
+              <SelectTrigger><SelectValue placeholder={vendorId ? 'Select master file...' : 'Select vendor first'} /></SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {masterFiles.length === 0 && vendorId ? (
+                  <SelectItem value="_none" disabled>No master files for this vendor</SelectItem>
+                ) : (
+                  masterFiles.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.file_name} ({f.item_count} items)</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
