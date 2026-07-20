@@ -15,6 +15,7 @@ import MasterFiles from '@/pages/MasterFiles';
 import Analysis from '@/pages/Analysis';
 import PartList from '@/pages/PartList';
 import DeviceModels from '@/pages/DeviceModels';
+import InventoryTracking from '@/pages/InventoryTracking';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -51,6 +52,7 @@ const AuthenticatedApp = () => {
         <Route path="/analysis" element={<Analysis />} />
         <Route path="/part-list" element={<PartList />} />
         <Route path="/device-models" element={<DeviceModels />} />
+        <Route path="/inventory-tracking" element={<InventoryTracking />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

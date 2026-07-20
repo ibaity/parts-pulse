@@ -1,0 +1,33 @@
+{
+  "name": "InventorySnapshot",
+  "type": "object",
+  "properties": {
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "snapshot_date": {
+      "type": "string",
+      "title": "Snapshot Date",
+      "format": "date"
+    },
+    "file_name": {
+      "type": "string",
+      "title": "File Name"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    },
+    "item_count": {
+      "type": "number",
+      "title": "Item Count",
+      "default": 0
+    }
+  },
+  "required": [
+    "vendor_id",
+    "snapshot_date"
+  ]
+}

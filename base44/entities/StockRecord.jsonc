@@ -1,0 +1,34 @@
+{
+  "name": "StockRecord",
+  "type": "object",
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "title": "Snapshot",
+      "relation": "InventorySnapshot"
+    },
+    "vendor_id": {
+      "type": "string",
+      "title": "Vendor",
+      "relation": "Vendor"
+    },
+    "item_code": {
+      "type": "string",
+      "title": "Item Code"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "quantity": {
+      "type": "number",
+      "title": "Quantity",
+      "default": 0
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "vendor_id",
+    "item_code"
+  ]
+}
