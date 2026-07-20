@@ -121,13 +121,13 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
           toUpdate.push({
             id: existing.id,
             master_file_id: masterFile.id,
-            mediserv_item_code: mediservCode || existing.mediserv_item_code,
-            manufacturer_item_code: manufacturerCode || existing.manufacturer_item_code,
-            description: desc || existing.description,
-            minimum_stock: minStock || existing.minimum_stock,
-            unit_price: price || existing.unit_price,
-            category: category || existing.category,
-            unit: unit || existing.unit,
+            mediserv_item_code: existing.mediserv_item_code || mediservCode,
+            manufacturer_item_code: existing.manufacturer_item_code || manufacturerCode,
+            description: existing.description || desc,
+            minimum_stock: existing.minimum_stock || minStock,
+            unit_price: existing.unit_price || price,
+            category: existing.category || category,
+            unit: existing.unit || unit,
           });
           mergedCount++;
         } else {
