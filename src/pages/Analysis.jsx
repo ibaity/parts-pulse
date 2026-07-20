@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AnalysisRunner from '@/components/AnalysisRunner';
 import ResultsTable from '@/components/ResultsTable';
 import ManualOrderPanel from '@/components/ManualOrderPanel';
@@ -21,6 +22,7 @@ export default function Analysis() {
   const [rerunStep, setRerunStep] = useState('');
   const [fileCurrency, setFileCurrency] = useState('SAR');
   const [manualItems, setManualItems] = useState([]);
+  const [activeTab, setActiveTab] = useState('analysis');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function Analysis() {
     try {
       const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: run.id }, '-recommended_quantity', 500);
       setResults(items);
+      setActiveTab('results');
     } catch (err) {
       console.error(err);
     }
@@ -84,6 +87,7 @@ export default function Analysis() {
   const handleAnalysisComplete = (newResults) => {
     setResults(newResults);
     loadRuns();
+    setActiveTab('results');
   };
 
   const handleRerun = async (run) => {
@@ -146,29 +150,33 @@ export default function Analysis() {
       </div>
 
       {selectedVendor && (
-        <>
-          <AnalysisRunner
-            vendorId={selectedVendor}
-            onAnalysisComplete={handleAnalysisComplete}
-          />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            <TabsTrigger value="results">
+              Purchase Recommendations
+              {results && (
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  ({results.filter(r => r.status !== 'unknown').length + manualItems.length})
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-          <ManualOrderPanel
-            vendorId={selectedVendor}
-            currency={fileCurrency}
-            items={manualItems}
-            onAdded={loadManualItems}
-            onDeleted={(id) => setManualItems(prev => prev.filter(i => i.id !== id))}
-            onUpdated={loadManualItems}
-          />
-
-          {results && (
-            <ResultsTable
-              results={results}
-              vendorName={selectedVendorObj?.name}
-              currency={fileCurrency}
-              manualItems={manualItems}
+          <TabsContent value="analysis" className="space-y-6 mt-4">
+            <AnalysisRunner
+              vendorId={selectedVendor}
+              onAnalysisComplete={handleAnalysisComplete}
             />
-          )}
+
+            <ManualOrderPanel
+              vendorId={selectedVendor}
+              currency={fileCurrency}
+              items={manualItems}
+              onAdded={loadManualItems}
+              onDeleted={(id) => setManualItems(prev => prev.filter(i => i.id !== id))}
+              onUpdated={loadManualItems}
+            />
 
           {runs.length > 0 && (
             <div>
@@ -226,7 +234,23 @@ export default function Analysis() {
               </div>
             </div>
           )}
-        </>
+          </TabsContent>
+
+          <TabsContent value="results" className="mt-4">
+            {results ? (
+              <ResultsTable
+                results={results}
+                vendorName={selectedVendorObj?.name}
+                currency={fileCurrency}
+                manualItems={manualItems}
+              />
+            ) : (
+              <Card className="p-8 text-center text-muted-foreground">
+                <p className="text-sm">No results yet. Run an analysis first.</p>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
