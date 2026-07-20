@@ -3,15 +3,21 @@ import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Upload, FileSpreadsheet } from 'lucide-react';
+import { CURRENCIES } from '@/lib/partConstants';
 
 const REQUIRED_FIELDS = [
   { key: 'mediserv_item_code', label: 'Mediserv Item Code' },
   { key: 'manufacturer_item_code', label: 'Manufacturer Item Code' },
   { key: 'description', label: 'Description' },
   { key: 'minimum_stock', label: 'Minimum Stock' },
+];
+
+const OPTIONAL_FIELDS = [
+  { key: 'unit_price', label: 'Unit Price' },
 ];
 
 const CHUNK_SIZE = 500;
@@ -22,6 +28,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState('');
   const [mapping, setMapping] = useState({});
+  const [currency, setCurrency] = useState('SAR');
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -55,7 +62,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       setRows(parsed);
       setFileName(selectedFile.name);
       const auto = {};
-      for (const field of REQUIRED_FIELDS) {
+      for (const field of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
         const match = cols.find(c => c.toLowerCase().includes(field.key.split('_')[0]));
         if (match) auto[field.key] = match;
       }
@@ -79,6 +86,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         vendor_id: vendorId,
         file_url,
         file_name: fileName,
+        currency,
         column_mapping: mapping,
         item_count: rows.length,
       });
@@ -90,6 +98,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         manufacturer_item_code: mapping.manufacturer_item_code ? String(row[mapping.manufacturer_item_code] ?? '') : '',
         description: mapping.description ? String(row[mapping.description] ?? '') : '',
         minimum_stock: mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0,
+        unit_price: mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0,
       }));
 
       for (let i = 0; i < items.length; i += CHUNK_SIZE) {
@@ -137,6 +146,21 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       </div>
 
       <Card className="p-4">
+        <h4 className="text-sm font-semibold mb-1">Approved Currency</h4>
+        <p className="text-xs text-muted-foreground mb-3">Select the currency used for all prices in this list.</p>
+        <Select value={currency} onValueChange={setCurrency}>
+          <SelectTrigger className="h-9 w-full max-w-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCIES.map(c => (
+              <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Card>
+
+      <Card className="p-4">
         <h4 className="text-sm font-semibold mb-1">Map Columns</h4>
         <p className="text-xs text-muted-foreground mb-4">Match each field to the corresponding column in your Excel file.</p>
         <div className="grid grid-cols-2 gap-4">
@@ -151,6 +175,25 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
                   <SelectValue placeholder="Select column..." />
                 </SelectTrigger>
                 <SelectContent>
+                  {columns.map(col => (
+                    <SelectItem key={col} value={col}>{col}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+          {OPTIONAL_FIELDS.map(field => (
+            <div key={field.key} className="space-y-1.5">
+              <label className="text-xs font-medium">{field.label} <span className="text-muted-foreground">(optional)</span></label>
+              <Select
+                value={mapping[field.key] || '_none'}
+                onValueChange={v => setMapping({ ...mapping, [field.key]: v === '_none' ? '' : v })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select column..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
                   {columns.map(col => (
                     <SelectItem key={col} value={col}>{col}</SelectItem>
                   ))}

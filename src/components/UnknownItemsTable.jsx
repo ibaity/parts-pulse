@@ -9,14 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Columns3, Check, Trash2, Loader2 } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
-
-const CATEGORIES = [
-  'High Rotation',
-  'Medium Rotation',
-  'Slow Moving',
-  'On Demand',
-  'Obsolete',
-];
+import { PART_CATEGORIES } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
   { key: 'item_code', label: 'PDF Code' },
@@ -25,6 +18,7 @@ const COLUMN_DEFS = [
   { key: 'description', label: 'Description' },
   { key: 'category', label: 'Category' },
   { key: 'minimum_stock', label: 'Min Stock' },
+  { key: 'unit_price', label: 'Unit Price' },
   { key: 'unit', label: 'Unit' },
 ];
 
@@ -41,6 +35,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
     description: true,
     category: true,
     minimum_stock: true,
+    unit_price: true,
     unit: true,
   });
   const { toast } = useToast();
@@ -84,6 +79,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
         manufacturer_item_code: edit.manufacturer_item_code ?? '',
         description: edit.description ?? item.description ?? '',
         minimum_stock: Number(edit.minimum_stock) || 0,
+        unit_price: Number(edit.unit_price) || 0,
         category: edit.category || '',
         unit: edit.unit || '',
       });
@@ -125,6 +121,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
           manufacturer_item_code: edit.manufacturer_item_code ?? '',
           description: edit.description ?? item.description ?? '',
           minimum_stock: Number(edit.minimum_stock) || 0,
+          unit_price: Number(edit.unit_price) || 0,
           category: edit.category || '',
           unit: edit.unit || '',
         });
@@ -211,6 +208,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
               {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.category && <th className="text-left p-2 font-medium whitespace-nowrap">Category</th>}
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
+              {visibleCols.unit_price && <th className="text-left p-2 font-medium whitespace-nowrap">Unit Price</th>}
               {visibleCols.unit && <th className="text-left p-2 font-medium whitespace-nowrap">Unit</th>}
               <th className="text-center p-2 font-medium whitespace-nowrap">Save</th>
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
@@ -254,13 +252,15 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
                       value={getValue(item, 'category') || 'uncategorized'}
                       onValueChange={v => updateField(item.id, 'category', v === 'uncategorized' ? '' : v)}
                     >
-                      <SelectTrigger className="h-7 text-xs w-[130px]">
+                      <SelectTrigger className="h-7 text-xs w-[160px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="uncategorized">— None —</SelectItem>
-                        {CATEGORIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        {PART_CATEGORIES.map(c => (
+                          <SelectItem key={c.value} value={c.value}>
+                            {c.label} <span className="text-muted-foreground text-[10px]">({c.desc})</span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -273,6 +273,17 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
                       className="w-20 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
                       value={getValue(item, 'minimum_stock')}
                       onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
+                    />
+                  </td>
+                )}
+                {visibleCols.unit_price && (
+                  <td className="p-1">
+                    <input
+                      type="number"
+                      className="w-24 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                      placeholder="0"
+                      value={getValue(item, 'unit_price')}
+                      onChange={e => updateField(item.id, 'unit_price', e.target.value)}
                     />
                   </td>
                 )}

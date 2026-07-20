@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Package, FileSpreadsheet } from 'lucide-react';
+import { getCurrencySymbol } from '@/lib/partConstants';
 
 export default function DeviceModelParts({ model, vendor }) {
   const [parts, setParts] = useState([]);
@@ -26,6 +27,18 @@ export default function DeviceModelParts({ model, vendor }) {
     };
     load();
   }, [model.id, model.master_file_id]);
+
+  const [masterFile, setMasterFile] = useState(null);
+
+  useEffect(() => {
+    if (model.master_file_id) {
+      base44.entities.MasterFile.get(model.master_file_id).then(setMasterFile).catch(() => setMasterFile(null));
+    } else {
+      setMasterFile(null);
+    }
+  }, [model.master_file_id]);
+
+  const currencySymbol = getCurrencySymbol(masterFile?.currency);
 
   if (loading) {
     return (
@@ -59,7 +72,7 @@ export default function DeviceModelParts({ model, vendor }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <FileSpreadsheet className="w-4 h-4" />
-        <span>{parts.length} parts from master sheet</span>
+        <span>{parts.length} parts from master sheet{masterFile?.currency ? ` · Prices in ${currencySymbol}` : ''}</span>
       </div>
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -68,8 +81,9 @@ export default function DeviceModelParts({ model, vendor }) {
               <tr>
                 <th className="text-left p-3 font-medium">Item Code</th>
                 <th className="text-left p-3 font-medium">Description</th>
-                <th className="text-left p-3 font-medium">Min Stock</th>
                 <th className="text-left p-3 font-medium">Category</th>
+                <th className="text-right p-3 font-medium">Min Stock</th>
+                <th className="text-right p-3 font-medium">Price</th>
               </tr>
             </thead>
             <tbody>
@@ -77,8 +91,11 @@ export default function DeviceModelParts({ model, vendor }) {
                 <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="p-3 font-mono text-xs">{p.mediserv_item_code || p.manufacturer_item_code || '-'}</td>
                   <td className="p-3">{p.description || '-'}</td>
-                  <td className="p-3 text-xs">{p.minimum_stock ?? '-'}</td>
                   <td className="p-3 text-xs">{p.category || '-'}</td>
+                  <td className="p-3 text-right text-xs">{p.minimum_stock ?? '-'}</td>
+                  <td className="p-3 text-right text-xs font-medium">
+                    {p.unit_price ? `${currencySymbol} ${Number(p.unit_price).toLocaleString()}` : '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>

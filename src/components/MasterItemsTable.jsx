@@ -9,14 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
-
-const CATEGORIES = [
-  'High Rotation',
-  'Medium Rotation',
-  'Slow Moving',
-  'On Demand',
-  'Obsolete',
-];
+import { PART_CATEGORIES, getCurrencySymbol } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
   { key: 'mediserv_item_code', label: 'Mediserv Code' },
@@ -24,10 +17,11 @@ const COLUMN_DEFS = [
   { key: 'description', label: 'Description' },
   { key: 'category', label: 'Category' },
   { key: 'minimum_stock', label: 'Min Stock' },
+  { key: 'unit_price', label: 'Unit Price' },
   { key: 'unit', label: 'Unit' },
 ];
 
-export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) {
+export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -39,9 +33,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
     description: true,
     category: true,
     minimum_stock: true,
+    unit_price: true,
     unit: true,
   });
   const { toast } = useToast();
+
+  const currencySymbol = getCurrencySymbol(currency);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return items;
@@ -63,7 +60,6 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
     setEdits(prev => {
       const current = prev[id] || {};
       const original = items.find(i => i.id === id) || {};
-      // If value matches original, remove from dirty
       if (String(original[field] ?? '') === String(value)) {
         const next = { ...current };
         delete next[field];
@@ -94,6 +90,9 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
         ...edits[id],
         minimum_stock: edits[id].minimum_stock !== undefined
           ? Number(edits[id].minimum_stock) || 0
+          : undefined,
+        unit_price: edits[id].unit_price !== undefined
+          ? Number(edits[id].unit_price) || 0
           : undefined,
       }));
       await base44.entities.MasterItem.bulkUpdate(updates);
@@ -174,6 +173,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
               {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.category && <SortHeader label="Category" sortKey="category" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
+              {visibleCols.unit_price && <SortHeader label={`Price (${currencySymbol})`} sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
@@ -216,13 +216,15 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
                         value={getValue(item, 'category') || 'uncategorized'}
                         onValueChange={v => updateField(item.id, 'category', v === 'uncategorized' ? '' : v)}
                       >
-                        <SelectTrigger className="h-7 text-xs w-[140px]">
+                        <SelectTrigger className="h-7 text-xs w-[170px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="uncategorized">— None —</SelectItem>
-                          {CATEGORIES.map(c => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          {PART_CATEGORIES.map(c => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.label} <span className="text-muted-foreground text-[10px]">({c.desc})</span>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -236,6 +238,19 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved }) 
                         value={getValue(item, 'minimum_stock')}
                         onChange={e => updateField(item.id, 'minimum_stock', e.target.value)}
                       />
+                    </td>
+                  )}
+                  {visibleCols.unit_price && (
+                    <td className="p-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground shrink-0">{currencySymbol}</span>
+                        <input
+                          type="number"
+                          className="w-24 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
+                          value={getValue(item, 'unit_price')}
+                          onChange={e => updateField(item.id, 'unit_price', e.target.value)}
+                        />
+                      </div>
                     </td>
                   )}
                   {visibleCols.unit && (

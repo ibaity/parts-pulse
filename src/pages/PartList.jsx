@@ -18,6 +18,7 @@ export default function PartList() {
   const [selectedVendor, setSelectedVendor] = useState(searchParams.get('vendor') || '');
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
+  const [fileCurrency, setFileCurrency] = useState('SAR');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
 
@@ -40,8 +41,12 @@ export default function PartList() {
       Promise.all([
         base44.entities.MasterItem.filter({ vendor_id: selectedVendor }, '-created_date', 500),
         base44.entities.AnalysisItem.filter({ vendor_id: selectedVendor, matched_via: 'none' }, '-created_date', 500),
-      ]).then(([master, unknown]) => {
+        base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100),
+      ]).then(([master, unknown, files]) => {
         setMasterItems(master);
+        if (files.length > 0 && files[0].currency) {
+          setFileCurrency(files[0].currency);
+        }
         const masterCodes = new Set();
         master.forEach(m => {
           if (m.mediserv_item_code) masterCodes.add(m.mediserv_item_code.trim().toLowerCase());
@@ -140,6 +145,7 @@ export default function PartList() {
                   ) : (
                     <MasterItemsTable
                       items={masterItems}
+                      currency={fileCurrency}
                       onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
                       onSaved={(edits) => {
                         setMasterItems(prev => prev.map(item => {
@@ -147,6 +153,9 @@ export default function PartList() {
                           const changes = { ...edits[item.id] };
                           if (changes.minimum_stock !== undefined) {
                             changes.minimum_stock = Number(changes.minimum_stock) || 0;
+                          }
+                          if (changes.unit_price !== undefined) {
+                            changes.unit_price = Number(changes.unit_price) || 0;
                           }
                           return { ...item, ...changes };
                         }));
