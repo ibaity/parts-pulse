@@ -1,20 +1,22 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Plus, Trash2, ShoppingCart } from 'lucide-react';
-import { fuzzyMatch, getCurrencySymbol } from '@/lib/partConstants';
+import { Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { getCurrencySymbol } from '@/lib/partConstants';
+
+const normalizeCode = (s) => (s || '').toLowerCase().trim();
 
 export default function ManualOrderPanel({ vendorId, currency, items, onAdded, onDeleted, onUpdated }) {
-  const [search, setSearch] = useState('');
   const [masterItems, setMasterItems] = useState([]);
-  const [showResults, setShowResults] = useState(false);
+  const [quickCode, setQuickCode] = useState('');
+  const [quickQty, setQuickQty] = useState('1');
+  const [preview, setPreview] = useState(null);
   const [adding, setAdding] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customItem, setCustomItem] = useState({ item_code: '', description: '', quantity: 1, unit_price: 0 });
-  const searchRef = useRef(null);
   const { toast } = useToast();
 
   const symbol = getCurrencySymbol(currency);
@@ -29,41 +31,58 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
     }
   }, [vendorId]);
 
-  const searchResults = useMemo(() => {
-    if (!search.trim()) return [];
-    return masterItems
-      .filter(i =>
-        fuzzyMatch(search, i.mediserv_item_code) ||
-        fuzzyMatch(search, i.manufacturer_item_code) ||
-        fuzzyMatch(search, i.description)
-      )
-      .slice(0, 10);
-  }, [search, masterItems]);
-
+  // Live preview as user types the code
   useEffect(() => {
-    const handler = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowResults(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    const code = quickCode.trim();
+    if (!code) { setPreview(null); return; }
+    const norm = normalizeCode(code);
+    // Try exact match first
+    let item = masterItems.find(
+      i => normalizeCode(i.mediserv_item_code) === norm ||
+           normalizeCode(i.manufacturer_item_code) === norm
+    );
+    // If no exact, try partial
+    if (!item) {
+      item = masterItems.find(
+        i => (i.mediserv_item_code && normalizeCode(i.mediserv_item_code).includes(norm)) ||
+             (i.manufacturer_item_code && normalizeCode(i.manufacturer_item_code).includes(norm))
+      );
+    }
+    setPreview(item || null);
+  }, [quickCode, masterItems]);
 
-  const handleAddFromMaster = async (item) => {
+  const handleQuickAdd = async () => {
+    const code = quickCode.trim();
+    if (!code) return;
+    const norm = normalizeCode(code);
+    let item = masterItems.find(
+      i => normalizeCode(i.mediserv_item_code) === norm ||
+           normalizeCode(i.manufacturer_item_code) === norm
+    );
+    if (!item) {
+      item = masterItems.find(
+        i => (i.mediserv_item_code && normalizeCode(i.mediserv_item_code).includes(norm)) ||
+             (i.manufacturer_item_code && normalizeCode(i.manufacturer_item_code).includes(norm))
+      );
+    }
+    if (!item) {
+      toast({ title: 'Not Found', description: 'No master item with this code. Use Custom Item button.', variant: 'destructive' });
+      return;
+    }
     setAdding(true);
     try {
       await base44.entities.ManualOrderItem.create({
         vendor_id: vendorId,
-        item_code: item.mediserv_item_code || item.manufacturer_item_code || '',
+        item_code: item.mediserv_item_code || item.manufacturer_item_code || code,
         description: item.description || '',
-        quantity: 1,
+        quantity: Number(quickQty) || 1,
         unit_price: Number(item.unit_price) || 0,
       });
       onAdded?.();
-      setSearch('');
-      setShowResults(false);
-      toast({ title: 'Added', description: 'Item added to manual order' });
+      setQuickCode('');
+      setQuickQty('1');
+      setPreview(null);
+      toast({ title: 'Added', description: item.description || 'Item added' });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to add item', variant: 'destructive' });
     }
@@ -126,39 +145,44 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
       </div>
 
       <div className="p-4 space-y-3">
-        <div className="relative" ref={searchRef}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => { setSearch(e.target.value); setShowResults(true); }}
-            onFocus={() => setShowResults(true)}
-            placeholder="Search master items to add to order..."
-            className="pl-9 h-9"
-          />
-          {showResults && search.trim() && (
-            <div className="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-auto">
-              {searchResults.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">No matches. Use "Custom Item" to add manually.</div>
+        {/* Quick add by code */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Input
+              value={quickCode}
+              onChange={e => setQuickCode(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }}
+              placeholder="Type item code and press Enter..."
+              className="h-9 flex-1 font-mono"
+            />
+            <Input
+              type="number"
+              value={quickQty}
+              onChange={e => setQuickQty(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }}
+              placeholder="Qty"
+              className="h-9 w-20 text-center"
+            />
+            <Button size="sm" onClick={handleQuickAdd} disabled={adding || !quickCode.trim()}>
+              <Plus className="w-4 h-4" /> Add
+            </Button>
+          </div>
+          {/* Live preview */}
+          {quickCode.trim() && (
+            <div className={`text-xs px-3 py-2 rounded-md border ${preview ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              {preview ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate">{preview.description || 'No description'}</span>
+                  <span className="shrink-0">{symbol} {(Number(preview.unit_price) || 0).toLocaleString()}</span>
+                </div>
               ) : (
-                searchResults.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleAddFromMaster(item)}
-                    disabled={adding}
-                    className="w-full text-left p-2 hover:bg-muted/50 border-b last:border-0 flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{item.description || 'No description'}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{item.mediserv_item_code || item.manufacturer_item_code || '-'}</p>
-                    </div>
-                    <Plus className="w-4 h-4 text-primary shrink-0" />
-                  </button>
-                ))
+                'No matching master item. Use Custom Item to add manually.'
               )}
             </div>
           )}
         </div>
 
+        {/* Custom item form */}
         {showCustom && (
           <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
             <div className="grid grid-cols-2 gap-2">
@@ -173,6 +197,7 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
           </div>
         )}
 
+        {/* Manual items table */}
         {items.length > 0 && (
           <div className="overflow-x-auto border rounded-lg">
             <table className="w-full text-sm">
