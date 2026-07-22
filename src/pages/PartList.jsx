@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
-import { PackageSearch, AlertCircle, Plus, Clock } from 'lucide-react';
+import { PackageSearch, AlertCircle, Plus, Clock, Check, Building2 } from 'lucide-react';
 
 const TABS = [
   { key: 'master', label: 'Master Items', icon: PackageSearch },
@@ -115,16 +114,42 @@ export default function PartList() {
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Select Vendor</label>
-        <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-          <SelectTrigger className="w-full max-w-md">
-            <SelectValue placeholder="Choose a vendor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {vendors.map(v => (
-              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {vendors.map(v => {
+            const isActive = selectedVendor === v.id;
+            const color = v.color || '#1E3A5F';
+            return (
+              <button
+                key={v.id}
+                onClick={() => setSelectedVendor(v.id)}
+                className={`relative shrink-0 w-56 text-right p-4 rounded-xl border-2 transition-all ${
+                  isActive
+                    ? 'border-primary bg-primary/5 shadow-md'
+                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+                }`}
+              >
+                {isActive && (
+                  <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-3 h-3 text-primary-foreground" />
+                  </div>
+                )}
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: color + '20' }}>
+                  <Building2 className="w-5 h-5" style={{ color }} />
+                </div>
+                <p className="text-sm font-semibold truncate">{v.name}</p>
+                {v.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{v.description}</p>
+                )}
+                {v.manufacturer_code && (
+                  <p className="text-xs font-mono text-muted-foreground mt-1">{v.manufacturer_code}</p>
+                )}
+              </button>
+            );
+          })}
+          {vendors.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4">No vendors yet. Add vendors first.</p>
+          )}
+        </div>
       </div>
 
       {selectedVendor && lastStockUpdate && (
