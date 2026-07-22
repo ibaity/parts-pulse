@@ -84,13 +84,25 @@ export function runAnalysis(pdfItems, masterItems, enabledWarehouses) {
           matched_via: matchedVia,
           warehouse_breakdown: warehouseBreakdown,
         });
+      } else {
+        results.push({
+          item_code: itemCode,
+          description: masterItem.description || '',
+          current_stock: currentStock,
+          minimum_stock: minStock,
+          recommended_quantity: 0,
+          unit_price: Number(masterItem.unit_price) || 0,
+          status: 'sufficient',
+          matched_via: matchedVia,
+          warehouse_breakdown: warehouseBreakdown,
+        });
       }
     }
   }
 
   const summary = {
     total_items: itemMap.size,
-    items_to_purchase: results.filter(r => r.status !== 'unknown').length,
+    items_to_purchase: results.filter(r => r.status === 'critical' || r.status === 'low').length,
     critical_items: results.filter(r => r.status === 'critical').length,
     unknown_items: results.filter(r => r.status === 'unknown').length,
   };

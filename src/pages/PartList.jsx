@@ -7,7 +7,7 @@ import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
-import { PackageSearch, AlertCircle, Plus } from 'lucide-react';
+import { PackageSearch, AlertCircle, Plus, Clock } from 'lucide-react';
 
 const TABS = [
   { key: 'master', label: 'Master Items', icon: PackageSearch },
@@ -24,6 +24,9 @@ export default function PartList() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
   const [addPartOpen, setAddPartOpen] = useState(false);
+  const [stockMap, setStockMap] = useState({});
+  const [warehouseNames, setWarehouseNames] = useState([]);
+  const [lastStockUpdate, setLastStockUpdate] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -58,9 +61,43 @@ export default function PartList() {
         const filteredUnknown = unknown.filter(u => !masterCodes.has((u.item_code || '').trim().toLowerCase()));
         setUnknownItems(filteredUnknown);
       }).catch(err => console.error(err)).finally(() => setLoading(false));
+
+      // Fetch latest stock data from analysis
+      base44.entities.AnalysisRun.filter({ vendor_id: selectedVendor, status: 'completed' }, '-created_date', 1)
+        .then(async (runs) => {
+          if (runs.length === 0) {
+            setStockMap({});
+            setWarehouseNames([]);
+            setLastStockUpdate(null);
+            return;
+          }
+          const latestRun = runs[0];
+          setLastStockUpdate(latestRun.created_date);
+          const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: latestRun.id }, '-created_date', 1000);
+          const map = {};
+          const whNames = new Set();
+          items.forEach(ai => {
+            const code = (ai.item_code || '').toLowerCase().trim();
+            if (code) {
+              map[code] = {
+                total: ai.current_stock || 0,
+                breakdown: ai.warehouse_breakdown || {},
+              };
+              if (ai.warehouse_breakdown) {
+                Object.keys(ai.warehouse_breakdown).forEach(k => whNames.add(k));
+              }
+            }
+          });
+          setStockMap(map);
+          setWarehouseNames([...whNames].sort());
+        })
+        .catch(err => console.error(err));
     } else {
       setMasterItems([]);
       setUnknownItems([]);
+      setStockMap({});
+      setWarehouseNames([]);
+      setLastStockUpdate(null);
     }
   }, [selectedVendor]);
 
@@ -89,6 +126,17 @@ export default function PartList() {
           </SelectContent>
         </Select>
       </div>
+
+      {selectedVendor && lastStockUpdate && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
+          <Clock className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-sm text-muted-foreground">Last stock update:</span>
+          <span className="text-sm font-semibold text-primary">
+            {new Date(lastStockUpdate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <span className="text-xs text-muted-foreground ml-auto hidden sm:inline">Based on latest PDF analysis</span>
+        </div>
+      )}
 
       {selectedVendor && (
         loading ? (
@@ -154,6 +202,8 @@ export default function PartList() {
                     <MasterItemsTable
                       items={masterItems}
                       currency={fileCurrency}
+                      stockMap={stockMap}
+                      warehouseNames={warehouseNames}
                       onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
                       onSaved={(edits) => {
                         setMasterItems(prev => prev.map(item => {

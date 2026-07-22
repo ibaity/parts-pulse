@@ -21,7 +21,7 @@ const COLUMN_DEFS = [
   { key: 'unit', label: 'Unit' },
 ];
 
-export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency }) {
+export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency, stockMap = {}, warehouseNames = [] }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -39,6 +39,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
   const { toast } = useToast();
 
   const currencySymbol = getCurrencySymbol(currency);
+
+  const getStock = (item) => {
+    const code1 = (item.mediserv_item_code || '').toLowerCase().trim();
+    const code2 = (item.manufacturer_item_code || '').toLowerCase().trim();
+    return stockMap[code1] || stockMap[code2] || null;
+  };
 
   const filtered = useMemo(() => {
     if (!search.trim()) return items;
@@ -174,6 +180,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit_price && <SortHeader label={`Price (${currencySymbol})`} sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
+              {warehouseNames.map(wh => (
+                <th key={wh} className="text-right p-2 font-medium whitespace-nowrap text-xs">{wh}</th>
+              ))}
+              {warehouseNames.length > 0 && (
+                <th className="text-right p-2 font-medium whitespace-nowrap text-xs">Total</th>
+              )}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
@@ -259,6 +271,20 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                         value={getValue(item, 'unit')}
                         onChange={e => updateField(item.id, 'unit', e.target.value)}
                       />
+                    </td>
+                  )}
+                  {warehouseNames.map(wh => {
+                    const stock = getStock(item);
+                    const qty = stock?.breakdown?.[wh]?.quantity;
+                    return (
+                      <td key={wh} className="p-2 text-right text-xs">
+                        {qty !== undefined ? qty : '—'}
+                      </td>
+                    );
+                  })}
+                  {warehouseNames.length > 0 && (
+                    <td className="p-2 text-right text-xs font-semibold">
+                      {getStock(item)?.total ?? '—'}
                     </td>
                   )}
                   <td className="p-1 text-center">

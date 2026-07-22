@@ -6,7 +6,7 @@ import { exportPurchaseExcel, exportPurchasePDF } from '@/lib/exportUtils';
 import { getCurrencySymbol } from '@/lib/partConstants';
 
 export default function ResultsTable({ results, vendorName, currency, manualItems = [] }) {
-  const purchaseItems = results.filter(r => r.status !== 'unknown');
+  const purchaseItems = results.filter(r => r.status !== 'unknown' && r.status !== 'sufficient');
   const unknownItems = results.filter(r => r.status === 'unknown');
   const symbol = getCurrencySymbol(currency);
   const normalizedManual = manualItems.map(m => ({

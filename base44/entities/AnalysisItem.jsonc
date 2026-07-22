@@ -46,6 +46,7 @@
       "enum": [
         "critical",
         "low",
+        "sufficient",
         "unknown"
       ],
       "default": "low"
