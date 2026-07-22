@@ -67,6 +67,24 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, o
     await base44.entities.AnalysisItem.bulkCreate(itemsToSave.slice(i, i + CHUNK_SIZE));
   }
 
+  // Auto-register warehouses found in the PDF
+  onStep?.('Registering warehouses...');
+  const whNames = new Set();
+  results.forEach(r => {
+    if (r.warehouse_breakdown) {
+      Object.keys(r.warehouse_breakdown).forEach(k => {
+        if (k && k.trim()) whNames.add(k.trim());
+      });
+    }
+  });
+  const existingWhNames = new Set(warehouses.map(w => (w.name || '').toLowerCase().trim()));
+  const newWhNames = [...whNames].filter(n => !existingWhNames.has(n.toLowerCase()));
+  if (newWhNames.length > 0) {
+    await base44.entities.Warehouse.bulkCreate(
+      newWhNames.map(name => ({ name, enabled: true, important: false, visible: true }))
+    );
+  }
+
   onStep?.('Finalizing...');
   await base44.entities.AnalysisRun.update(run.id, {
     status: 'completed',

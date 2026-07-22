@@ -48,10 +48,10 @@ export default function Warehouses() {
     setAdding(false);
   };
 
-  const handleToggle = async (wh) => {
+  const handleUpdate = async (wh, field, value) => {
     try {
-      await base44.entities.Warehouse.update(wh.id, { enabled: !wh.enabled });
-      load();
+      await base44.entities.Warehouse.update(wh.id, { [field]: value });
+      setWarehouses(prev => prev.map(w => w.id === wh.id ? { ...w, [field]: value } : w));
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update warehouse', variant: 'destructive' });
     }
@@ -71,7 +71,7 @@ export default function Warehouses() {
     <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Warehouses</h1>
-        <p className="text-sm text-muted-foreground mt-1">Define warehouses once. Enabled warehouses are included in stock calculations for all vendors.</p>
+        <p className="text-sm text-muted-foreground mt-1">Warehouses are auto-detected from PDF analyses. Configure importance, stock inclusion, and visibility per warehouse.</p>
       </div>
 
       <Card className="p-5">
@@ -109,7 +109,9 @@ export default function Warehouses() {
               <tr>
                 <th className="text-left p-3 font-medium">Location</th>
                 <th className="text-left p-3 font-medium">Code</th>
-                <th className="text-center p-3 font-medium">In Stock Count</th>
+                <th className="text-center p-3 font-medium">Important</th>
+                <th className="text-center p-3 font-medium">Count in Stock</th>
+                <th className="text-center p-3 font-medium">Visible</th>
                 <th className="text-right p-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -124,12 +126,13 @@ export default function Warehouses() {
                   </td>
                   <td className="p-3 font-mono text-xs text-muted-foreground">{wh.code || '-'}</td>
                   <td className="p-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className={`text-xs font-medium ${wh.enabled ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {wh.enabled ? 'Yes' : 'No'}
-                      </span>
-                      <Switch checked={wh.enabled} onCheckedChange={() => handleToggle(wh)} />
-                    </div>
+                    <Switch checked={!!wh.important} onCheckedChange={(v) => handleUpdate(wh, 'important', v)} />
+                  </td>
+                  <td className="p-3 text-center">
+                    <Switch checked={wh.enabled} onCheckedChange={(v) => handleUpdate(wh, 'enabled', v)} />
+                  </td>
+                  <td className="p-3 text-center">
+                    <Switch checked={wh.visible !== false} onCheckedChange={(v) => handleUpdate(wh, 'visible', v)} />
                   </td>
                   <td className="p-3 text-right">
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(wh)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
