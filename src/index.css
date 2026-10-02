@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    --background: 220 33% 98%;
+    --background: 150 20% 97%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 215 60% 22%;
+    --primary: 160 60% 20%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 25% 95%;
+    --secondary: 150 18% 95%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 220 25% 96%;
-    --muted-foreground: 218 14% 46%;
-    --accent: 187 85% 38%;
+    --muted: 150 18% 95%;
+    --muted-foreground: 160 10% 42%;
+    --accent: 158 64% 38%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 18% 91%;
-    --input: 220 18% 88%;
-    --ring: 187 85% 38%;
+    --border: 150 15% 89%;
+    --input: 150 15% 86%;
+    --ring: 158 64% 38%;
     --success: 152 60% 36%;
     --warning: 32 92% 44%;
     --critical: 0 72% 51%;
     --info: 262 58% 55%;
-    --chart-1: 187 85% 38%;
-    --chart-2: 215 60% 40%;
+    --chart-1: 158 64% 38%;
+    --chart-2: 160 60% 28%;
     --chart-3: 32 92% 44%;
     --chart-4: 262 58% 55%;
     --chart-5: 152 60% 36%;
@@ -37,14 +37,14 @@
     --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
     --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --sidebar-background: 218 55% 13%;
-    --sidebar-foreground: 214 25% 74%;
-    --sidebar-primary: 187 80% 48%;
+    --sidebar-background: 162 55% 12%;
+    --sidebar-foreground: 155 20% 74%;
+    --sidebar-primary: 152 60% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 218 42% 20%;
+    --sidebar-accent: 162 40% 19%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 218 35% 21%;
-    --sidebar-ring: 187 80% 48%;
+    --sidebar-border: 162 35% 19%;
+    --sidebar-ring: 152 60% 52%;
   }
 
   .dark {
