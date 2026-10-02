@@ -74,6 +74,23 @@ function Kpi({ icon: Icon, label, value, sub }) {
   );
 }
 
+// Two-line Y-axis label: code on the first line, its name below (part description or engineer name).
+function PartTick({ x, y, payload, index, rows, subKey = 'description' }) {
+  const desc = rows?.[index]?.[subKey] || '';
+  const short = desc.length > 30 ? `${desc.slice(0, 29)}…` : desc;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <title>{desc ? `${payload.value} — ${desc}` : payload.value}</title>
+      <text x={-8} y={short ? -3 : 4} textAnchor="end" fontSize={11} fontWeight={600} fontFamily="var(--font-mono)" fill="hsl(var(--foreground))">
+        {payload.value}
+      </text>
+      {short && (
+        <text x={-8} y={11} textAnchor="end" fontSize={10.5} fill="hsl(var(--muted-foreground))">{short}</text>
+      )}
+    </g>
+  );
+}
+
 function ChartTooltip({ active, payload, render }) {
   if (!active || !payload?.length) return null;
   return <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md space-y-0.5">{render(payload[0].payload)}</div>;
@@ -283,9 +300,8 @@ export default function Consumption() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={whChart} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }} barCategoryGap="20%">
                     <XAxis type="number" hide />
-                    <YAxis type="category" dataKey="display" width={170}
-                      tickFormatter={(v) => (v.length > 26 ? `${v.slice(0, 25)}…` : v)} tickLine={false} axisLine={false}
-                      tick={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontFamily: 'var(--font-mono)' }} />
+                    <YAxis type="category" dataKey="name" width={170} tickLine={false} axisLine={false}
+                      tick={<PartTick rows={whChart} subKey="label" />} />
                     <Tooltip
                       cursor={{ fill: 'hsl(var(--muted))' }}
                       content={<ChartTooltip render={(w) => (
@@ -331,12 +347,12 @@ export default function Consumption() {
               {topChart.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">No priced consumption in this period.</p>
               ) : (
-                <div style={{ height: Math.max(160, topChart.length * 34) }}>
+                <div style={{ height: Math.max(180, topChart.length * 44) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topChart} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }} barCategoryGap="20%">
+                    <BarChart data={topChart} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }} barCategoryGap="22%">
                       <XAxis type="number" hide />
-                      <YAxis type="category" dataKey="code" width={96} tickLine={false} axisLine={false}
-                        tick={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontFamily: 'var(--font-mono)' }} />
+                      <YAxis type="category" dataKey="code" width={190} tickLine={false} axisLine={false}
+                        tick={<PartTick rows={topChart} />} />
                       <Tooltip
                         cursor={{ fill: 'hsl(var(--muted))' }}
                         content={<ChartTooltip render={(p) => (
