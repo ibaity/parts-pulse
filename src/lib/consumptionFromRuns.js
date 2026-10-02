@@ -1,10 +1,9 @@
-import { normalizeCode } from '@/lib/analysisUtils';
+import { normalizeCode, isEngineerWarehouse, parseWarehouse } from '@/lib/analysisUtils';
+
+export { isEngineerWarehouse };
 
 const DAY = 86400000;
 
-// Engineer stock locations are warehouses whose code starts with "E" followed by digits (e.g. E102).
-export const isEngineerWarehouse = (name) => /^e\d/i.test((name || '').trim());
-const whKey = (name) => (name || '').toString().trim().toUpperCase();
 
 function addTo(map, key, qty, value) {
   const t = map.get(key) || { qty: 0, value: 0 };
@@ -21,6 +20,8 @@ export function computePeriods(runsWithItems) {
   const priceByCode = new Map();
   const infoByCode = new Map();
   // Per item: stock in each warehouse (all warehouses, enabled or not).
+  // Engineer locations are keyed by their code (E101) so a name added later still groups with history.
+  const warehouseLabels = new Map();
   const whMaps = runs.map(({ items }) => {
     const map = new Map();
     for (const it of items) {
@@ -29,7 +30,10 @@ export function computePeriods(runsWithItems) {
       if (!code) continue;
       const byWh = new Map();
       for (const [name, info] of Object.entries(it.warehouse_breakdown || {})) {
-        byWh.set(whKey(name), (byWh.get(whKey(name)) || 0) + (Number(info?.quantity) || 0));
+        const { key, name: parsedName } = parseWarehouse(name);
+        byWh.set(key, (byWh.get(key) || 0) + (Number(info?.quantity) || 0));
+        const label = info?.name || parsedName;
+        if (label) warehouseLabels.set(key, label);
       }
       map.set(code, byWh);
     }
@@ -83,12 +87,12 @@ export function computePeriods(runsWithItems) {
       restockedQty,
     });
   }
-  return { periods, priceByCode, infoByCode };
+  return { periods, priceByCode, infoByCode, warehouseLabels };
 }
 
 // Spreads each period's consumption over calendar months in proportion to the days
 // it covers, so a period from Jan 20 to Feb 10 is split between January and February.
-export function allocateByMonth({ periods, priceByCode, infoByCode }, year) {
+export function allocateByMonth({ periods, priceByCode, infoByCode, warehouseLabels = new Map() }, year) {
   const months = Array.from({ length: 12 }, (_, m) => ({
     month: m,
     value: 0,
@@ -144,7 +148,18 @@ export function allocateByMonth({ periods, priceByCode, infoByCode }, year) {
   }
 
   const toWarehouseRows = (whMap) => [...whMap.entries()]
-    .map(([name, w]) => ({ name, engineer: isEngineerWarehouse(name), qty: w.qty, value: w.value, partRows: toRows(w.parts) }))
+    .map(([name, w]) => {
+      const label = warehouseLabels.get(name) || '';
+      return {
+        name,
+        label,
+        display: label ? `${name} · ${label}` : name,
+        engineer: isEngineerWarehouse(name),
+        qty: w.qty,
+        value: w.value,
+        partRows: toRows(w.parts),
+      };
+    })
     .sort((a, b) => (b.value - a.value) || (b.qty - a.qty));
 
   const yearWarehouses = new Map();

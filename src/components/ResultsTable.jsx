@@ -90,7 +90,8 @@ function WarehouseBreakdown({ breakdown }) {
           }`}
           title={info?.enabled ? 'Counted in stock' : 'Warehouse disabled — not counted'}
         >
-          {name}<span className="font-semibold tabular-nums no-underline">{info?.quantity ?? 0}</span>
+          {name}{info?.name && <span className="text-muted-foreground">· {info.name}</span>}
+          <span className="font-semibold tabular-nums no-underline">{info?.quantity ?? 0}</span>
         </span>
       ))}
     </div>

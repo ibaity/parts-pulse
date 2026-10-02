@@ -7,6 +7,21 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
+// Engineer stock locations are warehouse codes starting with "E" + digits, e.g. "E101" or "E101 - Ahmed Ali".
+const ENGINEER_CODE = /^(e\d+)\b[\s\-–:|/]*(.*)$/i;
+
+export function isEngineerWarehouse(name) {
+  return ENGINEER_CODE.test((name || '').toString().trim());
+}
+
+// Splits a warehouse value into a stable key and a display name ("E101 - Ahmed" -> E101 / Ahmed).
+export function parseWarehouse(value) {
+  const raw = (value || '').toString().trim();
+  const m = raw.match(ENGINEER_CODE);
+  if (m) return { key: m[1].toUpperCase(), name: m[2].trim() };
+  return { key: raw.toUpperCase(), name: '' };
+}
+
 // Exact match on warehouse name or code — partial matching made "WH1" also match "WH10".
 export function isWarehouseEnabled(warehouseName, enabledWarehouses) {
   const normalized = normalizeName(warehouseName);
@@ -62,6 +77,7 @@ export function isMissingFromReport(result) {
 
 export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   const itemMap = new Map();
+  const warehouseLabels = new Map();
 
   for (const row of reportItems) {
     const code = (row.item_code ?? '').toString().trim();
@@ -73,6 +89,8 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
     const qty = Number(row.quantity) || 0;
     const warehouses = itemMap.get(key).warehouses;
     warehouses.set(whName, (warehouses.get(whName) || 0) + qty);
+    const label = (row.warehouse_name ?? '').toString().trim();
+    if (label && label.toUpperCase() !== whName.toUpperCase()) warehouseLabels.set(whName, label);
   }
 
   const index = buildMasterIndex(masterItems);
@@ -85,6 +103,8 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
     for (const [whName, qty] of warehouses) {
       const enabled = isWarehouseEnabled(whName, enabledWarehouses);
       warehouseBreakdown[whName] = { quantity: qty, enabled };
+      const label = warehouseLabels.get(whName) || parseWarehouse(whName).name;
+      if (label) warehouseBreakdown[whName].name = label;
       if (enabled) currentStock += qty;
     }
 

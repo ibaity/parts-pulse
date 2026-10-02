@@ -14,7 +14,8 @@ const EXTRACT_SCHEMA = {
         type: 'object',
         properties: {
           item_code: { type: 'string', description: 'The item/product code or SKU number' },
-          warehouse: { type: 'string', description: 'The warehouse name or identifier where the item is stored' },
+          warehouse: { type: 'string', description: 'The warehouse code or identifier where the item is stored' },
+          warehouse_name: { type: 'string', description: 'The warehouse description or the engineer/technician name for that warehouse, if shown' },
           quantity: { type: 'number', description: 'The quantity on hand for this item in this warehouse' },
         },
       },

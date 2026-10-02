@@ -117,7 +117,7 @@ export default function Consumption() {
   const whChart = shownWhRows.filter(w => w.value > 0).slice(0, 15);
   const activeWh = selectedWh ? warehouseRows.find(w => w.name === selectedWh) : null;
   const partRows = activeWh ? activeWh.partRows : month ? month.partRows : data?.yearParts || [];
-  const scopeLabel = `${activeWh ? `${activeWh.name} · ` : ''}${month ? `${MONTHS_LONG[month.month]} ${year}` : `Whole year ${year}`}`;
+  const scopeLabel = `${activeWh ? `${activeWh.display} · ` : ''}${month ? `${MONTHS_LONG[month.month]} ${year}` : `Whole year ${year}`}`;
   const topChart = partRows.filter(p => p.value > 0).slice(0, 10);
   const maxMonthValue = Math.max(0, ...(data?.months || []).map(m => m.value));
   const loading = runIndex.isLoading || (yearData.isLoading && !!year);
@@ -290,13 +290,14 @@ export default function Consumption() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={whChart} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }} barCategoryGap="20%">
                     <XAxis type="number" hide />
-                    <YAxis type="category" dataKey="name" width={96} tickLine={false} axisLine={false}
+                    <YAxis type="category" dataKey="display" width={170}
+                      tickFormatter={(v) => (v.length > 26 ? `${v.slice(0, 25)}…` : v)} tickLine={false} axisLine={false}
                       tick={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontFamily: 'var(--font-mono)' }} />
                     <Tooltip
                       cursor={{ fill: 'hsl(var(--muted))' }}
                       content={<ChartTooltip render={(w) => (
                         <>
-                          <p className="font-semibold font-mono">{w.name}</p>
+                          <p className="font-semibold"><span className="font-mono">{w.name}</span>{w.label && ` · ${w.label}`}</p>
                           <p>Consumed: <span className="font-semibold">{money(w.value)}</span></p>
                           <p className="text-muted-foreground">{units(w.qty)} units · {w.partRows.length} parts</p>
                         </>
@@ -316,7 +317,7 @@ export default function Consumption() {
 
             {activeWh && (
               <div className="mt-3 flex items-center gap-2 text-xs">
-                <span className="px-2 py-1 rounded-md bg-accent/10 text-accent font-medium font-mono">{activeWh.name}</span>
+                <span className="px-2 py-1 rounded-md bg-accent/10 text-accent font-medium"><span className="font-mono">{activeWh.name}</span>{activeWh.label && ` · ${activeWh.label}`}</span>
                 <span className="text-muted-foreground"><bdi>{money(activeWh.value)}</bdi> · {units(activeWh.qty)} units — parts shown below</span>
                 <button onClick={() => setSelectedWh(null)} className="ml-auto text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                   <X className="w-3.5 h-3.5" />Clear
