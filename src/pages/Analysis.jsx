@@ -18,13 +18,15 @@ import { useVendorSelection } from '@/hooks/useVendors';
 export default function Analysis() {
   const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [results, setResults] = useState(null);
+  const [shownRun, setShownRun] = useState(null);
+  const [loadingLatest, setLoadingLatest] = useState(false);
   const [runs, setRuns] = useState([]);
   const [loadingRun, setLoadingRun] = useState(null);
   const [rerunId, setRerunId] = useState(null);
   const [rerunStep, setRerunStep] = useState('');
   const [fileCurrency, setFileCurrency] = useState('SAR');
   const [manualItems, setManualItems] = useState([]);
-  const [activeTab, setActiveTab] = useState('analysis');
+  const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
 
   const loadManualItems = async () => {
@@ -37,21 +39,35 @@ export default function Analysis() {
     }
   };
 
+  // Always show the results of the latest completed analysis for the selected vendor.
   const loadRuns = async () => {
     if (!selectedVendor) return;
-    const data = await base44.entities.AnalysisRun.filter({ vendor_id: selectedVendor }, '-created_date', 20);
-    setRuns(data);
-    if (data.length > 0 && data[0].status === 'completed') {
-      try {
-        const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: data[0].id }, '-recommended_quantity');
+    const vendorId = selectedVendor;
+    setLoadingLatest(true);
+    try {
+      const data = await base44.entities.AnalysisRun.filter({ vendor_id: vendorId }, '-created_date', 20);
+      setRuns(data);
+      const latest = data.find(r => r.status === 'completed');
+      if (latest) {
+        const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: latest.id }, '-recommended_quantity');
         setResults(items);
-      } catch (err) {
-        console.error(err);
+        setShownRun(latest);
+      } else {
+        setResults(null);
+        setShownRun(null);
+        setActiveTab('analysis');
       }
+    } catch (err) {
+      console.error(err);
     }
+    setLoadingLatest(false);
   };
 
   useEffect(() => {
+    setResults(null);
+    setShownRun(null);
+    setRuns([]);
+    setActiveTab('results');
     if (selectedVendor) {
       loadRuns();
       loadManualItems();
@@ -71,6 +87,7 @@ export default function Analysis() {
     try {
       const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: run.id }, '-recommended_quantity');
       setResults(items);
+      setShownRun(run);
       setActiveTab('results');
     } catch (err) {
       console.error(err);
@@ -146,15 +163,15 @@ export default function Analysis() {
       {selectedVendor && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
             <TabsTrigger value="results">
-              Purchase Recommendations
+              Stock Status
               {results && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({results.filter(r => r.status === 'critical' || r.status === 'low').length + manualItems.length})
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="analysis">New Analysis</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-6 mt-4">
@@ -238,8 +255,36 @@ export default function Analysis() {
           )}
           </TabsContent>
 
-          <TabsContent value="results" className="mt-4">
-            {results ? (
+          <TabsContent value="results" className="mt-4 space-y-4">
+            {shownRun && (
+              <div className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border ${
+                shownRun.id === runs.find(r => r.status === 'completed')?.id ? 'bg-accent/5 border-accent/30' : 'bg-warning/5 border-warning/30'
+              }`}>
+                <div className="flex items-center gap-2 min-w-0 text-sm">
+                  {isSpreadsheet(shownRun.pdf_file_name)
+                    ? <FileSpreadsheet className="w-4 h-4 text-success shrink-0" />
+                    : <FileText className="w-4 h-4 text-critical shrink-0" />}
+                  <span className="font-medium truncate">{shownRun.pdf_file_name}</span>
+                  <span className="text-muted-foreground whitespace-nowrap">· {moment(shownRun.created_date).fromNow()}</span>
+                  {shownRun.id === runs.find(r => r.status === 'completed')?.id ? (
+                    <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[11px] font-medium">Latest</span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[11px] font-medium">Older run</span>
+                  )}
+                </div>
+                <div className="flex gap-2 sm:ml-auto">
+                  {shownRun.id !== runs.find(r => r.status === 'completed')?.id && (
+                    <Button size="sm" variant="outline" onClick={loadRuns}>Back to latest</Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => setActiveTab('analysis')}>
+                    <RefreshCw className="w-4 h-4 mr-1.5" />Update with new report
+                  </Button>
+                </div>
+              </div>
+            )}
+            {loadingLatest && !results ? (
+              <Card className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-accent" /></Card>
+            ) : results ? (
               <ResultsTable
                 results={results}
                 vendorId={selectedVendor}
@@ -249,7 +294,8 @@ export default function Analysis() {
               />
             ) : (
               <Card className="p-8 text-center text-muted-foreground">
-                <p className="text-sm">No results yet. Run an analysis first.</p>
+                <p className="text-sm">No analysis yet for this vendor.</p>
+                <Button size="sm" className="mt-3" onClick={() => setActiveTab('analysis')}>Run the first analysis</Button>
               </Card>
             )}
           </TabsContent>

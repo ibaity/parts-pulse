@@ -44,17 +44,28 @@ export default function Dashboard() {
   const { vendors, isLoading: vendorsLoading } = useVendors();
   const { data: runs = [], isLoading: runsLoading } = useQuery({
     queryKey: ['analysis-runs', 'recent'],
-    queryFn: () => base44.entities.AnalysisRun.list('-created_date', 10),
+    queryFn: () => base44.entities.AnalysisRun.list('-created_date', 50),
   });
 
   const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v])), [vendors]);
-  const latest = runs.find(r => r.status === 'completed');
+  // Latest completed analysis per vendor — this is the current stock picture.
+  const latestByVendor = useMemo(() => {
+    const map = new Map();
+    for (const r of runs) {
+      if (r.status === 'completed' && !map.has(r.vendor_id)) map.set(r.vendor_id, r);
+    }
+    return map;
+  }, [runs]);
+  const latestRuns = [...latestByVendor.values()];
+  const latest = latestRuns[0];
+  const sum = (key) => latestRuns.reduce((acc, r) => acc + (r[key] || 0), 0);
   const stats = {
-    total_items: latest?.total_items || 0,
-    items_to_purchase: latest?.items_to_purchase || 0,
-    critical_items: latest?.critical_items || 0,
-    unknown_items: latest?.unknown_items || 0,
+    total_items: sum('total_items'),
+    items_to_purchase: sum('items_to_purchase'),
+    critical_items: sum('critical_items'),
+    unknown_items: sum('unknown_items'),
   };
+  const recentRuns = runs.slice(0, 8);
 
   if (vendorsLoading || runsLoading) return <DashboardSkeleton />;
 
@@ -65,7 +76,7 @@ export default function Dashboard() {
           <p className="text-xs font-medium uppercase tracking-wider text-accent">{moment().format('dddd, MMMM D')}</p>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Overview of inventory analysis and purchase recommendations
+            Current stock status from the latest analysis of each vendor
             {latest && <> · last analysis {moment(latest.created_date).fromNow()}</>}
           </p>
         </div>
@@ -75,7 +86,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Items" value={stats.total_items} icon={Package} tone="primary" subtitle="Unique items in last analysis" />
+        <StatCard title="Total Items" value={stats.total_items} icon={Package} tone="primary" subtitle="Across all vendors" />
         <StatCard title="Items to Purchase" value={stats.items_to_purchase} icon={ShoppingCart} tone="warning" subtitle="Below minimum stock" />
         <StatCard title="Critical Items" value={stats.critical_items} icon={AlertTriangle} tone="critical" subtitle="Zero stock" />
         <StatCard title="Unknown Items" value={stats.unknown_items} icon={HelpCircle} tone="info" subtitle="Not in master file" />
@@ -111,7 +122,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {runs.map(run => {
+                  {recentRuns.map(run => {
                     const vendor = vendorMap.get(run.vendor_id);
                     return (
                       <tr key={run.id} className="hover:bg-muted/40 transition-colors">
@@ -140,7 +151,7 @@ export default function Dashboard() {
 
         <Card className="shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b">
-            <h3 className="font-semibold">Vendors</h3>
+            <h3 className="font-semibold">Stock by Vendor</h3>
             <Link to="/vendors" className="text-xs font-medium text-accent hover:underline">Manage</Link>
           </div>
           {vendors.length === 0 ? (
@@ -162,7 +173,15 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{v.name}</p>
-                      {v.description && <p className="text-xs text-muted-foreground truncate">{v.description}</p>}
+                      {latestByVendor.get(v.id) ? (
+                        <p className="text-xs text-muted-foreground truncate">
+                          <span className="text-warning font-medium">{latestByVendor.get(v.id).items_to_purchase || 0} to buy</span>
+                          {' · '}<span className="text-critical font-medium">{latestByVendor.get(v.id).critical_items || 0} critical</span>
+                          {' · '}{moment(latestByVendor.get(v.id).created_date).fromNow()}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No analysis yet</p>
+                      )}
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
