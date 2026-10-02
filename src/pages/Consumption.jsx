@@ -11,10 +11,10 @@ import { useVendorSelection } from '@/hooks/useVendors';
 import { fetchAll } from '@/lib/fetchAll';
 import { computePeriods, allocateByMonth, yearsWithData } from '@/lib/consumptionFromRuns';
 import { getCurrencySymbol } from '@/lib/partConstants';
-import { TrendingDown, Wallet, CalendarRange, Package, Info, X } from 'lucide-react';
+import { TrendingDown, Wallet, CalendarRange, Package, Info, X, HardHat, Warehouse as WarehouseIcon } from 'lucide-react';
 import moment from 'moment';
 
-const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'unit_price', 'status'];
+const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'unit_price', 'status', 'warehouse_breakdown'];
 const BAR_COLOR = 'hsl(var(--accent))';
 const MONTHS = moment.monthsShort();
 const MONTHS_LONG = moment.months();
@@ -82,6 +82,8 @@ export default function Consumption() {
   const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [year, setYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
+  const [whView, setWhView] = useState('engineers');
+  const [selectedWh, setSelectedWh] = useState(null);
   const runIndex = useRunIndex(selectedVendor);
   const years = runIndex.data?.years || [];
 
@@ -93,7 +95,7 @@ export default function Consumption() {
       setYear(years.includes(current) ? current : years[0]);
     }
   }, [years, year]);
-  useEffect(() => { setSelectedMonth(null); }, [selectedVendor, year]);
+  useEffect(() => { setSelectedMonth(null); setSelectedWh(null); }, [selectedVendor, year]);
 
   const yearData = useYearConsumption(selectedVendor, runIndex.data, year);
   const data = yearData.data;
@@ -108,7 +110,14 @@ export default function Consumption() {
   })), [data]);
 
   const month = selectedMonth !== null ? data?.months[selectedMonth] : null;
-  const partRows = month ? month.partRows : data?.yearParts || [];
+  const warehouseRows = (month ? month.warehouseRows : data?.yearWarehouses) || [];
+  const engineerRows = warehouseRows.filter(w => w.engineer);
+  const otherRows = warehouseRows.filter(w => !w.engineer);
+  const shownWhRows = whView === 'engineers' ? engineerRows : otherRows;
+  const whChart = shownWhRows.filter(w => w.value > 0).slice(0, 15);
+  const activeWh = selectedWh ? warehouseRows.find(w => w.name === selectedWh) : null;
+  const partRows = activeWh ? activeWh.partRows : month ? month.partRows : data?.yearParts || [];
+  const scopeLabel = `${activeWh ? `${activeWh.name} · ` : ''}${month ? `${MONTHS_LONG[month.month]} ${year}` : `Whole year ${year}`}`;
   const topChart = partRows.filter(p => p.value > 0).slice(0, 10);
   const maxMonthValue = Math.max(0, ...(data?.months || []).map(m => m.value));
   const loading = runIndex.isLoading || (yearData.isLoading && !!year);
@@ -246,10 +255,85 @@ export default function Consumption() {
             </div>
           </Card>
 
+          <Card className="p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+              <div>
+                <h3 className="font-semibold">Who consumes the most</h3>
+                <p className="text-xs text-muted-foreground">
+                  {month ? `${MONTHS_LONG[month.month]} ${year}` : `Whole year ${year}`} · click a bar to see that location&apos;s parts
+                </p>
+              </div>
+              <div className="flex gap-1.5 sm:ml-auto">
+                {[
+                  { key: 'engineers', label: `Engineers (${engineerRows.length})`, icon: HardHat },
+                  { key: 'warehouses', label: `Warehouses (${otherRows.length})`, icon: WarehouseIcon },
+                ].map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => { setWhView(t.key); setSelectedWh(null); }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      whView === t.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted border-border'
+                    }`}
+                  >
+                    <t.icon className="w-3.5 h-3.5" />{t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {whChart.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-10 text-center">
+                {whView === 'engineers' ? 'No consumption found in engineer warehouses (E…) for this period.' : 'No consumption found in other warehouses for this period.'}
+              </p>
+            ) : (
+              <div className="mt-4" style={{ height: Math.max(160, whChart.length * 34) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={whChart} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }} barCategoryGap="20%">
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="name" width={96} tickLine={false} axisLine={false}
+                      tick={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontFamily: 'var(--font-mono)' }} />
+                    <Tooltip
+                      cursor={{ fill: 'hsl(var(--muted))' }}
+                      content={<ChartTooltip render={(w) => (
+                        <>
+                          <p className="font-semibold font-mono">{w.name}</p>
+                          <p>Consumed: <span className="font-semibold">{money(w.value)}</span></p>
+                          <p className="text-muted-foreground">{units(w.qty)} units · {w.partRows.length} parts</p>
+                        </>
+                      )} />}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22} className="cursor-pointer"
+                      onClick={(w) => w?.name && setSelectedWh(prev => prev === w.name ? null : w.name)}
+                      label={{ position: 'right', fontSize: 11, fill: 'hsl(var(--muted-foreground))', formatter: (v) => money(v) }}>
+                      {whChart.map(w => (
+                        <Cell key={w.name} fill={BAR_COLOR} fillOpacity={!selectedWh || selectedWh === w.name ? 1 : 0.35} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {activeWh && (
+              <div className="mt-3 flex items-center gap-2 text-xs">
+                <span className="px-2 py-1 rounded-md bg-accent/10 text-accent font-medium font-mono">{activeWh.name}</span>
+                <span className="text-muted-foreground"><bdi>{money(activeWh.value)}</bdi> · {units(activeWh.qty)} units — parts shown below</span>
+                <button onClick={() => setSelectedWh(null)} className="ml-auto text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                  <X className="w-3.5 h-3.5" />Clear
+                </button>
+              </div>
+            )}
+            {whView === 'warehouses' && (
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Transfers count as consumption of the sending warehouse — a main store that supplies engineers will rank high here.
+              </p>
+            )}
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <Card className="p-4 sm:p-5 shadow-sm lg:col-span-3">
               <h3 className="font-semibold">Top 10 parts by consumed value</h3>
-              <p className="text-xs text-muted-foreground mb-4">{month ? `${MONTHS_LONG[month.month]} ${year}` : `Whole year ${year}`}</p>
+              <p className="text-xs text-muted-foreground mb-4">{scopeLabel}</p>
               {topChart.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">No priced consumption in this period.</p>
               ) : (
@@ -281,7 +365,7 @@ export default function Consumption() {
             <Card className="shadow-sm lg:col-span-2 overflow-hidden">
               <div className="px-4 py-3 border-b">
                 <h3 className="font-semibold">Consumed parts</h3>
-                <p className="text-xs text-muted-foreground">{partRows.length} parts · {month ? MONTHS_LONG[month.month] : `year ${year}`}</p>
+                <p className="text-xs text-muted-foreground">{partRows.length} parts · {scopeLabel}</p>
               </div>
               <div className="overflow-auto max-h-[420px]">
                 <table className="w-full text-sm">
