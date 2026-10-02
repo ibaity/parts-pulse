@@ -133,12 +133,12 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
   };
 
   return (
-    <Card className="overflow-hidden border-blue-200">
-      <div className="p-4 border-b bg-blue-50/50 flex items-center justify-between">
+    <Card className="overflow-hidden border-info/30">
+      <div className="p-4 border-b bg-info/5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ShoppingCart className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-blue-900">Manual Order Items</h3>
-          <span className="text-sm text-blue-600">({items.length})</span>
+          <ShoppingCart className="w-5 h-5 text-info" />
+          <h3 className="font-semibold text-foreground">Manual Order Items</h3>
+          <span className="text-sm text-info">({items.length})</span>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowCustom(!showCustom)}>
           <Plus className="w-4 h-4 mr-1" /> Custom Item
@@ -170,7 +170,7 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
           </div>
           {/* Live preview */}
           {quickCode.trim() && (
-            <div className={`text-xs px-3 py-2 rounded-md border ${preview ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+            <div className={`text-xs px-3 py-2 rounded-md border ${preview ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'}`}>
               {preview ? (
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium truncate">{preview.description || 'No description'}</span>

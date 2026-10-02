@@ -193,7 +193,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
             {sorted.map(item => {
               const isDirty = !!edits[item.id];
               return (
-                <tr key={item.id} className={`border-b transition-colors ${isDirty ? 'bg-amber-50' : 'hover:bg-muted/40'}`}>
+                <tr key={item.id} className={`border-b transition-colors ${isDirty ? 'bg-warning/10' : 'hover:bg-muted/40'}`}>
                   {visibleCols.mediserv_item_code && (
                     <td className="p-1">
                       <input

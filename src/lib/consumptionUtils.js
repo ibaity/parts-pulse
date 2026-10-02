@@ -74,10 +74,10 @@ export function calculateConsumption(stockRecords, snapshots) {
 }
 
 export const STATUS_STYLES = {
-  critical: { label: 'Critical', className: 'bg-red-100 text-red-700' },
-  low: { label: 'Low', className: 'bg-amber-100 text-amber-700' },
-  ok: { label: 'OK', className: 'bg-green-100 text-green-700' },
-  restocked: { label: 'Restocked', className: 'bg-blue-100 text-blue-700' },
-  stable: { label: 'Stable', className: 'bg-slate-100 text-slate-600' },
+  critical: { label: 'Critical', className: 'bg-critical/10 text-critical' },
+  low: { label: 'Low', className: 'bg-warning/10 text-warning' },
+  ok: { label: 'OK', className: 'bg-success/10 text-success' },
+  restocked: { label: 'Restocked', className: 'bg-info/10 text-info' },
+  stable: { label: 'Stable', className: 'bg-muted text-muted-foreground' },
   no_data: { label: 'No Data', className: 'bg-muted text-muted-foreground' },
 };

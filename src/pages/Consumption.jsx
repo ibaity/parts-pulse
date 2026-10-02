@@ -12,6 +12,7 @@ import { fetchAll } from '@/lib/fetchAll';
 import { computePeriods, allocateByMonth, yearsWithData } from '@/lib/consumptionFromRuns';
 import { getCurrencySymbol } from '@/lib/partConstants';
 import { TrendingDown, Wallet, CalendarRange, Package, Info, X, HardHat, Warehouse as WarehouseIcon } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import moment from 'moment';
 
 const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'unit_price', 'status', 'warehouse_breakdown'];
@@ -124,15 +125,7 @@ export default function Consumption() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-          <TrendingDown className="w-6 h-6 text-accent" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Consumption</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Yearly and monthly value of parts consumed, from stock changes between your analysis reports</p>
-        </div>
-      </div>
+      <PageHeader icon={TrendingDown} title="Consumption" subtitle="Yearly and monthly value of parts consumed, from stock changes between your analysis reports" />
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
         <div className="space-y-2 flex-1 max-w-md">

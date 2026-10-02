@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import { useQueryClient } from '@tanstack/react-query';
 import { VENDORS_QUERY_KEY } from '@/hooks/useVendors';
 
@@ -69,19 +70,15 @@ export default function Vendors() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Vendors</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage vendor profiles — item codes are tied to each vendor</p>
-        </div>
+      <PageHeader icon={Building2} title="Vendors" subtitle="Manage vendor profiles — item codes are tied to each vendor">
         <Button onClick={handleAdd}>
           <Plus className="w-4 h-4 mr-2" /> Add Vendor
         </Button>
-      </div>
+      </PageHeader>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-muted border-t-accent rounded-full animate-spin" />
         </div>
       ) : vendors.length === 0 ? (
         <Card className="p-12 text-center">

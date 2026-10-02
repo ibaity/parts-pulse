@@ -120,7 +120,7 @@ export default function SnapshotUploader({ vendorId, onUploaded }) {
 
   if (!columns.length) {
     return (
-      <Card className="p-8 border-2 border-dashed border-slate-300">
+      <Card className="p-8 border-2 border-dashed border-border">
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -156,7 +156,7 @@ export default function SnapshotUploader({ vendorId, onUploaded }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <FileSpreadsheet className="w-5 h-5 text-green-600" />
+        <FileSpreadsheet className="w-5 h-5 text-success" />
         <span className="text-sm font-medium">{fileName}</span>
         <span className="text-xs text-muted-foreground">({rows.length} rows)</span>
       </div>

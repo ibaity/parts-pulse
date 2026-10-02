@@ -164,11 +164,11 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
 
   if (!columns.length) {
     return (
-      <Card className="p-8 border-2 border-dashed border-slate-300">
+      <Card className="p-8 border-2 border-dashed border-border">
         <label className="flex flex-col items-center gap-3 cursor-pointer">
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
             {processing ? (
-              <div className="w-6 h-6 border-2 border-slate-300 border-t-primary rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-muted border-t-accent rounded-full animate-spin" />
             ) : (
               <Upload className="w-6 h-6 text-muted-foreground" />
             )}
@@ -188,7 +188,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <FileSpreadsheet className="w-5 h-5 text-green-600" />
+        <FileSpreadsheet className="w-5 h-5 text-success" />
         <span className="text-sm font-medium">{fileName}</span>
         <span className="text-xs text-muted-foreground">({rows.length} rows)</span>
       </div>

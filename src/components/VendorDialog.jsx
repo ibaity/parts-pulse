@@ -83,7 +83,7 @@ export default function VendorDialog({ open, onClose, onSaved, vendor }) {
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full border-2 transition ${color === c ? 'border-slate-800 scale-110' : 'border-transparent'}`}
+                  className={`w-8 h-8 rounded-full border-2 transition ${color === c ? 'border-foreground scale-110' : 'border-transparent'}`}
                   style={{ backgroundColor: c }}
                 />
               ))}

@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Monitor, Pencil, Trash2, ArrowLeft, FileSpreadsheet } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import DeviceModelDialog from '@/components/DeviceModelDialog';
 import DeviceModelParts from '@/components/DeviceModelParts';
 
@@ -50,7 +51,7 @@ export default function DeviceModels() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-muted border-t-accent rounded-full animate-spin" />
       </div>
     );
   }
@@ -76,15 +77,11 @@ export default function DeviceModels() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Device Models</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage device models linked to master part sheets</p>
-        </div>
+      <PageHeader icon={Monitor} title="Device Models" subtitle="Manage device models linked to master part sheets">
         <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" /> Add Model
         </Button>
-      </div>
+      </PageHeader>
 
       {models.length === 0 ? (
         <Card className="p-12 text-center">

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Copyright from '@/components/Copyright';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, Stethoscope, ListChecks, Monitor, ClipboardList, TrendingDown, Menu, X } from 'lucide-react';
 
@@ -43,9 +44,17 @@ function Brand() {
   );
 }
 
+const allNavItems = navSections.flatMap(s => s.items);
+
 export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const currentPage = allNavItems.find(i => i.path === location.pathname);
+
+  // Browser tab shows the current page name.
+  useEffect(() => {
+    document.title = currentPage ? `${currentPage.label} · MEDISERV Inventory` : 'MEDISERV Inventory';
+  }, [currentPage]);
 
   const sidebarContent = (
     <>
@@ -83,7 +92,7 @@ export default function Layout() {
         ))}
       </nav>
       <div className="px-5 py-4 border-t border-sidebar-border">
-        <p className="text-[11px] text-sidebar-foreground/60">Spare Parts Analysis System</p>
+        <Copyright className="text-sidebar-foreground/60" />
       </div>
     </>
   );
@@ -127,9 +136,13 @@ export default function Layout() {
             <Menu className="w-6 h-6" />
           </button>
           <Brand />
+          {currentPage && <span className="ml-auto text-xs font-medium text-sidebar-foreground truncate">{currentPage.label}</span>}
         </header>
         <main className="flex-1 overflow-auto">
           <Outlet />
+          <footer className="md:hidden px-4 py-6 border-t text-center">
+            <Copyright className="text-muted-foreground" />
+          </footer>
         </main>
       </div>
     </div>

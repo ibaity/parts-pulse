@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Warehouse as WarehouseIcon, Trash2 } from 'lucide-react';
+import { Plus, Warehouse as WarehouseIcon, Trash2, HardHat } from 'lucide-react';
+import { isEngineerWarehouse } from '@/lib/analysisUtils';
+import PageHeader from '@/components/PageHeader';
 
 export default function Warehouses() {
   const [warehouses, setWarehouses] = useState([]);
@@ -69,10 +71,7 @@ export default function Warehouses() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Warehouses</h1>
-        <p className="text-sm text-muted-foreground mt-1">Warehouses are auto-detected from PDF analyses. Configure importance, stock inclusion, and visibility per warehouse.</p>
-      </div>
+      <PageHeader icon={WarehouseIcon} title="Warehouses" subtitle="Detected automatically from your stock reports. Choose which ones count toward available stock." />
 
       <Card className="p-5">
         <h3 className="text-sm font-semibold mb-3">Add New Warehouse</h3>
@@ -93,7 +92,7 @@ export default function Warehouses() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-muted border-t-accent rounded-full animate-spin" />
         </div>
       ) : warehouses.length === 0 ? (
         <Card className="p-12 text-center">
@@ -120,8 +119,13 @@ export default function Warehouses() {
                 <tr key={wh.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <WarehouseIcon className="w-4 h-4 text-muted-foreground" />
+                      {isEngineerWarehouse(wh.name)
+                        ? <HardHat className="w-4 h-4 text-accent" />
+                        : <WarehouseIcon className="w-4 h-4 text-muted-foreground" />}
                       <span className="font-medium">{wh.name}</span>
+                      {isEngineerWarehouse(wh.name) && (
+                        <span className="px-1.5 py-0.5 rounded bg-accent/10 text-accent text-[10px] font-medium">Engineer</span>
+                      )}
                     </div>
                   </td>
                   <td className="p-3 font-mono text-xs text-muted-foreground">{wh.code || '-'}</td>

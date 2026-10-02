@@ -57,11 +57,11 @@ export default function ConsumptionTable({ data }) {
             {sorted.map((item, i) => {
               const style = STATUS_STYLES[item.status] || STATUS_STYLES.no_data;
               const consumedIcon = item.consumed > 0
-                ? <TrendingDown className="w-3 h-3 inline mr-1 text-red-500" />
+                ? <TrendingDown className="w-3 h-3 inline mr-1 text-critical" />
                 : item.consumed < 0
-                  ? <TrendingUp className="w-3 h-3 inline mr-1 text-blue-500" />
+                  ? <TrendingUp className="w-3 h-3 inline mr-1 text-info" />
                   : item.consumed === 0
-                    ? <Minus className="w-3 h-3 inline mr-1 text-slate-400" />
+                    ? <Minus className="w-3 h-3 inline mr-1 text-muted-foreground" />
                     : null;
               return (
                 <tr key={i} className="border-b hover:bg-muted/40">
@@ -69,7 +69,7 @@ export default function ConsumptionTable({ data }) {
                   <td className="p-2 text-xs max-w-[200px] truncate">{item.description || '—'}</td>
                   <td className="p-2 text-right text-xs">{fmt(item.prev_qty)}</td>
                   <td className="p-2 text-right text-xs font-medium">{fmt(item.current_qty)}</td>
-                  <td className={`p-2 text-right text-xs font-medium ${item.consumed > 0 ? 'text-red-600' : item.consumed < 0 ? 'text-blue-600' : ''}`}>
+                  <td className={`p-2 text-right text-xs font-medium ${item.consumed > 0 ? 'text-critical' : item.consumed < 0 ? 'text-info' : ''}`}>
                     {consumedIcon}{fmt(item.consumed)}
                   </td>
                   <td className="p-2 text-right text-xs text-muted-foreground">{item.days_diff}</td>

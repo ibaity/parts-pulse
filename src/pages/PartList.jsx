@@ -8,6 +8,7 @@ import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
 import { PackageSearch, AlertCircle, Plus, Clock, Check, Building2 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import { useVendorSelection } from '@/hooks/useVendors';
 
 const TABS = [
@@ -90,16 +91,8 @@ export default function PartList() {
   }, [selectedVendor]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 w-full max-w-[1600px]">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <PackageSearch className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Part List</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage all parts and classify unknown items from PDF reports</p>
-        </div>
-      </div>
+    <div className="p-4 sm:p-8 space-y-6 w-full max-w-[1600px]">
+      <PageHeader icon={PackageSearch} title="Part List" subtitle="Manage all parts and classify unknown items from stock reports" />
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Select Vendor</label>
@@ -155,7 +148,7 @@ export default function PartList() {
       {selectedVendor && (
         loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-muted border-t-accent rounded-full animate-spin" />
           </div>
         ) : (
           <>

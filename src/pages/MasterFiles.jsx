@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import MasterFileUploader from '@/components/MasterFileUploader';
 import { FileSpreadsheet, ArrowRight, Download } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 
@@ -64,10 +65,7 @@ export default function MasterFiles() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Master Files</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload vendor master Excel files and map columns manually</p>
-      </div>
+      <PageHeader icon={FileSpreadsheet} title="Master Files" subtitle="Upload each vendor's master parts list (Excel) with minimum stock and prices" />
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Select Vendor</label>
@@ -94,14 +92,14 @@ export default function MasterFiles() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold">Existing Master Files</h2>
               <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || loading}>
-                {exporting && <div className="w-4 h-4 border-2 border-slate-300 border-t-primary rounded-full animate-spin mr-1" />}
+                {exporting && <div className="w-4 h-4 border-2 border-muted border-t-accent rounded-full animate-spin mr-1" />}
                 <Download className="w-4 h-4 mr-1" />
                 {exporting ? 'Exporting...' : 'Export All Items'}
               </Button>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-muted border-t-accent rounded-full animate-spin" />
               </div>
             ) : masterFiles.length === 0 ? (
               <Card className="p-12 text-center">
@@ -114,7 +112,7 @@ export default function MasterFiles() {
                 {masterFiles.map(mf => (
                   <Card key={mf.id} className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />
+                      <FileSpreadsheet className="w-5 h-5 text-success shrink-0" />
                       <div>
                         <p className="font-medium text-sm">{mf.file_name}</p>
                         <p className="text-xs text-muted-foreground">

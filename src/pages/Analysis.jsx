@@ -11,7 +11,8 @@ import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { fetchAll } from '@/lib/fetchAll';
 import { isSpreadsheet } from '@/lib/reportParser';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, FileSpreadsheet, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+import { FileText, FileSpreadsheet, ChevronRight, RefreshCw, Loader2, FlaskConical } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 
@@ -141,10 +142,7 @@ export default function Analysis() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Analysis</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload the stock report (Excel, CSV or PDF) to get purchase recommendations</p>
-      </div>
+      <PageHeader icon={FlaskConical} title="Analysis" subtitle="Upload the stock report (Excel, CSV or PDF) to get purchase recommendations" />
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Select Vendor</label>
