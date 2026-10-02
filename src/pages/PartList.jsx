@@ -7,6 +7,7 @@ import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
 import { PackageSearch, AlertCircle, Plus, Clock, Check, Building2 } from 'lucide-react';
+import { useVendorSelection } from '@/hooks/useVendors';
 
 const TABS = [
   { key: 'master', label: 'Master Items', icon: PackageSearch },
@@ -14,9 +15,8 @@ const TABS = [
 ];
 
 export default function PartList() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [vendors, setVendors] = useState([]);
-  const [selectedVendor, setSelectedVendor] = useState(searchParams.get('vendor') || '');
+  const [, setSearchParams] = useSearchParams();
+  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
   const [fileCurrency, setFileCurrency] = useState('SAR');
@@ -26,18 +26,6 @@ export default function PartList() {
   const [stockMap, setStockMap] = useState({});
   const [warehouseNames, setWarehouseNames] = useState([]);
   const [lastStockUpdate, setLastStockUpdate] = useState(null);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await base44.entities.Vendor.list('-created_date', 100);
-        setVendors(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    load();
-  }, []);
 
   useEffect(() => {
     if (selectedVendor) {

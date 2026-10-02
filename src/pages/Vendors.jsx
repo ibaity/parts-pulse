@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { VENDORS_QUERY_KEY } from '@/hooks/useVendors';
 
 export default function Vendors() {
   const [vendors, setVendors] = useState([]);
@@ -24,12 +26,15 @@ export default function Vendors() {
   const [deleteVendor, setDeleteVendor] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await base44.entities.Vendor.list('-created_date', 100);
       setVendors(data);
+      // Keep the shared vendor cache used by other pages in sync.
+      queryClient.setQueryData(VENDORS_QUERY_KEY, data);
     } catch (err) {
       console.error(err);
     }

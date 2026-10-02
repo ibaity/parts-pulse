@@ -123,7 +123,7 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-1">
               {vendors.map(v => (
-                <Link key={v.id} to="/analysis" className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <Link key={v.id} to={`/analysis?vendor=${v.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: v.color + '20' }}>
                     <Building2 className="w-4 h-4" style={{ color: v.color }} />
                   </div>

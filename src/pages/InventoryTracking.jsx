@@ -9,27 +9,15 @@ import SnapshotUploader from '@/components/SnapshotUploader';
 import ConsumptionTable from '@/components/ConsumptionTable';
 import { calculateConsumption } from '@/lib/consumptionUtils';
 import { ClipboardList, TrendingUp, Plus, Calendar, Package } from 'lucide-react';
+import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function InventoryTracking() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [vendors, setVendors] = useState([]);
-  const [selectedVendor, setSelectedVendor] = useState(searchParams.get('vendor') || '');
+  const [, setSearchParams] = useSearchParams();
+  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [snapshots, setSnapshots] = useState([]);
   const [stockRecords, setStockRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await base44.entities.Vendor.list('-created_date', 100);
-        setVendors(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    load();
-  }, []);
 
   useEffect(() => {
     if (selectedVendor) {

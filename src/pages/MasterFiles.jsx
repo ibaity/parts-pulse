@@ -9,27 +9,14 @@ import { useToast } from '@/components/ui/use-toast';
 import MasterFileUploader from '@/components/MasterFileUploader';
 import { FileSpreadsheet, ArrowRight, Download } from 'lucide-react';
 import moment from 'moment';
+import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function MasterFiles() {
-  const [vendors, setVendors] = useState([]);
-  const [selectedVendor, setSelectedVendor] = useState('');
+  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [masterFiles, setMasterFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await base44.entities.Vendor.list('-created_date', 100);
-        setVendors(data);
-      } catch (err) {
-        console.error(err);
-      }
-      setLoading(false);
-    };
-    load();
-  }, []);
 
   const loadMasterFiles = async () => {
     if (!selectedVendor) return;
