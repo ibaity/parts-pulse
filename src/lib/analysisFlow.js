@@ -21,19 +21,20 @@ const EXTRACT_SCHEMA = {
 };
 
 export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, onStep }) {
-  onStep?.('Creating analysis run...');
-  const run = await base44.entities.AnalysisRun.create({
-    vendor_id: vendorId,
-    pdf_file_url: pdfFileUrl,
-    pdf_file_name: pdfFileName,
-    status: 'processing',
-  });
-
+  // Create the run record and extract the PDF in parallel — they don't depend on each other.
   onStep?.('Extracting data from PDF (this may take a moment)...');
-  const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
-    file_url: pdfFileUrl,
-    json_schema: EXTRACT_SCHEMA,
-  });
+  const [run, extractResult] = await Promise.all([
+    base44.entities.AnalysisRun.create({
+      vendor_id: vendorId,
+      pdf_file_url: pdfFileUrl,
+      pdf_file_name: pdfFileName,
+      status: 'processing',
+    }),
+    base44.integrations.Core.ExtractDataFromUploadedFile({
+      file_url: pdfFileUrl,
+      json_schema: EXTRACT_SCHEMA,
+    }),
+  ]);
 
   if (extractResult.status === 'error') {
     throw new Error(extractResult.details || 'PDF extraction failed');
@@ -47,11 +48,11 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, o
     throw new Error('No items found in PDF. Make sure the PDF contains item codes and quantities.');
   }
 
-  onStep?.('Loading master items...');
-  const masterItems = await base44.entities.MasterItem.filter({ vendor_id: vendorId });
-
-  onStep?.('Loading warehouses...');
-  const warehouses = await base44.entities.Warehouse.list('-created_date', 200);
+  onStep?.('Loading master items and warehouses...');
+  const [masterItems, warehouses] = await Promise.all([
+    base44.entities.MasterItem.filter({ vendor_id: vendorId }),
+    base44.entities.Warehouse.list('-created_date', 200),
+  ]);
   const enabledWarehouses = warehouses.filter(w => w.enabled);
 
   onStep?.('Running analysis...');

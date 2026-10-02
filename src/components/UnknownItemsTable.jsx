@@ -111,10 +111,11 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
     const ids = sorted.map(i => i.id);
     setSavingIds(new Set(ids));
     try {
-      for (const id of ids) {
+      // One bulk request for master items + parallel updates, instead of 2 sequential requests per item.
+      const records = ids.map(id => {
         const item = items.find(i => i.id === id);
         const edit = edits[id] || {};
-        await base44.entities.MasterItem.create({
+        return {
           vendor_id: vendorId,
           mediserv_item_code: edit.mediserv_item_code ?? item.item_code ?? '',
           manufacturer_item_code: edit.manufacturer_item_code ?? '',
@@ -123,10 +124,11 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
           unit_price: Number(edit.unit_price) || 0,
           category: edit.category || '',
           unit: edit.unit || '',
-        });
-        await base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' });
-        onSaved(id);
-      }
+        };
+      });
+      await base44.entities.MasterItem.bulkCreate(records);
+      await Promise.all(ids.map(id => base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' })));
+      ids.forEach(id => onSaved(id));
       toast({ title: 'Saved', description: `${ids.length} item(s) added to master list` });
       setEdits({});
     } catch (err) {
