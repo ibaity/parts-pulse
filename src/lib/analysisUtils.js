@@ -1,67 +1,97 @@
 export function normalizeName(name) {
-  return (name || '').toLowerCase().trim();
+  return (name || '').toString().toLowerCase().trim();
 }
 
+// Item codes often differ only by separators ("AB-123" vs "AB 123" vs "ab123").
+export function normalizeCode(code) {
+  return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
+}
+
+// Exact match on warehouse name or code — partial matching made "WH1" also match "WH10".
 export function isWarehouseEnabled(warehouseName, enabledWarehouses) {
   const normalized = normalizeName(warehouseName);
   if (!normalized) return false;
-  return enabledWarehouses.some(wh => {
-    const whName = normalizeName(wh.name);
-    const whCode = normalizeName(wh.code);
-    if (!whName && !whCode) return false;
-    const nameMatch = whName && (whName === normalized || whName.includes(normalized) || normalized.includes(whName));
-    const codeMatch = whCode && (whCode === normalized || whCode.includes(normalized) || normalized.includes(whCode));
-    return nameMatch || codeMatch;
-  });
+  return enabledWarehouses.some(wh =>
+    normalizeName(wh.name) === normalized || (wh.code && normalizeName(wh.code) === normalized)
+  );
 }
 
-export function matchMasterItem(itemCode, masterItems) {
-  const code = normalizeName(itemCode);
+export function buildMasterIndex(masterItems) {
+  const byMediserv = new Map();
+  const byManufacturer = new Map();
+  for (const mi of masterItems) {
+    const m = normalizeCode(mi.mediserv_item_code);
+    const f = normalizeCode(mi.manufacturer_item_code);
+    if (m && !byMediserv.has(m)) byMediserv.set(m, mi);
+    if (f && !byManufacturer.has(f)) byManufacturer.set(f, mi);
+  }
+  return { byMediserv, byManufacturer };
+}
+
+export function matchMasterItem(itemCode, index) {
+  const code = normalizeCode(itemCode);
   if (!code) return { item: null, matchedVia: 'none' };
-
-  let match = masterItems.find(mi => normalizeName(mi.mediserv_item_code) === code);
-  if (match) return { item: match, matchedVia: 'mediserv_code' };
-
-  match = masterItems.find(mi => normalizeName(mi.manufacturer_item_code) === code);
-  if (match) return { item: match, matchedVia: 'manufacturer_code' };
-
+  const viaMediserv = index.byMediserv.get(code);
+  if (viaMediserv) return { item: viaMediserv, matchedVia: 'mediserv_code' };
+  const viaManufacturer = index.byManufacturer.get(code);
+  if (viaManufacturer) return { item: viaManufacturer, matchedVia: 'manufacturer_code' };
   return { item: null, matchedVia: 'none' };
 }
 
-export function runAnalysis(pdfItems, masterItems, enabledWarehouses) {
+function stockResult(itemCode, masterItem, matchedVia, currentStock, warehouseBreakdown) {
+  const minStock = Number(masterItem.minimum_stock) || 0;
+  const needsPurchase = currentStock < minStock;
+  return {
+    item_code: itemCode,
+    description: masterItem.description || '',
+    current_stock: currentStock,
+    minimum_stock: minStock,
+    recommended_quantity: needsPurchase ? minStock - currentStock : 0,
+    unit_price: Number(masterItem.unit_price) || 0,
+    status: !needsPurchase ? 'sufficient' : currentStock <= 0 ? 'critical' : 'low',
+    matched_via: matchedVia,
+    warehouse_breakdown: warehouseBreakdown,
+  };
+}
+
+// An item is "missing from report" when it has a minimum stock but did not appear in the report at all.
+export function isMissingFromReport(result) {
+  return result.status === 'critical'
+    && (!result.warehouse_breakdown || Object.keys(result.warehouse_breakdown).length === 0);
+}
+
+export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   const itemMap = new Map();
 
-  for (const pdfItem of pdfItems) {
-    const code = (pdfItem.item_code || '').trim();
+  for (const row of reportItems) {
+    const code = (row.item_code ?? '').toString().trim();
     if (!code) continue;
+    const key = normalizeCode(code);
+    if (!itemMap.has(key)) itemMap.set(key, { code, warehouses: new Map() });
 
-    if (!itemMap.has(code)) {
-      itemMap.set(code, { warehouses: new Map() });
-    }
-
-    const whName = pdfItem.warehouse || 'Unknown';
-    const qty = Number(pdfItem.quantity) || 0;
-    const current = itemMap.get(code).warehouses.get(whName) || 0;
-    itemMap.get(code).warehouses.set(whName, current + qty);
+    const whName = (row.warehouse ?? '').toString().trim() || 'Unknown';
+    const qty = Number(row.quantity) || 0;
+    const warehouses = itemMap.get(key).warehouses;
+    warehouses.set(whName, (warehouses.get(whName) || 0) + qty);
   }
 
+  const index = buildMasterIndex(masterItems);
+  const matchedMasterIds = new Set();
   const results = [];
 
-  for (const [itemCode, data] of itemMap) {
+  for (const { code, warehouses } of itemMap.values()) {
     let currentStock = 0;
     const warehouseBreakdown = {};
-
-    for (const [whName, qty] of data.warehouses) {
-      const isEnabled = isWarehouseEnabled(whName, enabledWarehouses);
-      warehouseBreakdown[whName] = { quantity: qty, enabled: isEnabled };
-      if (isEnabled) currentStock += qty;
+    for (const [whName, qty] of warehouses) {
+      const enabled = isWarehouseEnabled(whName, enabledWarehouses);
+      warehouseBreakdown[whName] = { quantity: qty, enabled };
+      if (enabled) currentStock += qty;
     }
 
-    const { item: masterItem, matchedVia } = matchMasterItem(itemCode, masterItems);
-
+    const { item: masterItem, matchedVia } = matchMasterItem(code, index);
     if (!masterItem) {
       results.push({
-        item_code: itemCode,
+        item_code: code,
         description: '',
         current_stock: currentStock,
         minimum_stock: 0,
@@ -70,38 +100,23 @@ export function runAnalysis(pdfItems, masterItems, enabledWarehouses) {
         matched_via: 'none',
         warehouse_breakdown: warehouseBreakdown,
       });
-    } else {
-      const minStock = Number(masterItem.minimum_stock) || 0;
-      if (currentStock < minStock) {
-        results.push({
-          item_code: itemCode,
-          description: masterItem.description || '',
-          current_stock: currentStock,
-          minimum_stock: minStock,
-          recommended_quantity: minStock - currentStock,
-          unit_price: Number(masterItem.unit_price) || 0,
-          status: currentStock === 0 ? 'critical' : 'low',
-          matched_via: matchedVia,
-          warehouse_breakdown: warehouseBreakdown,
-        });
-      } else {
-        results.push({
-          item_code: itemCode,
-          description: masterItem.description || '',
-          current_stock: currentStock,
-          minimum_stock: minStock,
-          recommended_quantity: 0,
-          unit_price: Number(masterItem.unit_price) || 0,
-          status: 'sufficient',
-          matched_via: matchedVia,
-          warehouse_breakdown: warehouseBreakdown,
-        });
-      }
+      continue;
     }
+    matchedMasterIds.add(masterItem.id);
+    results.push(stockResult(code, masterItem, matchedVia, currentStock, warehouseBreakdown));
+  }
+
+  // Master items with a minimum stock that are absent from the report have zero stock.
+  for (const mi of masterItems) {
+    if (matchedMasterIds.has(mi.id)) continue;
+    if ((Number(mi.minimum_stock) || 0) <= 0) continue;
+    const code = mi.mediserv_item_code || mi.manufacturer_item_code;
+    if (!code) continue;
+    results.push(stockResult(code, mi, mi.mediserv_item_code ? 'mediserv_code' : 'manufacturer_code', 0, {}));
   }
 
   const summary = {
-    total_items: itemMap.size,
+    total_items: results.length,
     items_to_purchase: results.filter(r => r.status === 'critical' || r.status === 'low').length,
     critical_items: results.filter(r => r.status === 'critical').length,
     unknown_items: results.filter(r => r.status === 'unknown').length,

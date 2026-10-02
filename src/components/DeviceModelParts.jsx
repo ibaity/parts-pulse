@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Package, FileSpreadsheet } from 'lucide-react';
@@ -15,7 +16,7 @@ export default function DeviceModelParts({ model, vendor }) {
       setLoading(true);
       try {
         if (model.master_file_id) {
-          const items = await base44.entities.MasterItem.filter({ master_file_id: model.master_file_id }, '-created_date', 500);
+          const items = await fetchAll(base44.entities.MasterItem, { master_file_id: model.master_file_id });
           setParts(items);
         } else {
           setParts([]);

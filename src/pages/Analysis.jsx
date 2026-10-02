@@ -8,8 +8,10 @@ import AnalysisRunner from '@/components/AnalysisRunner';
 import ResultsTable from '@/components/ResultsTable';
 import ManualOrderPanel from '@/components/ManualOrderPanel';
 import { executeAnalysisFlow } from '@/lib/analysisFlow';
+import { fetchAll } from '@/lib/fetchAll';
+import { isSpreadsheet } from '@/lib/reportParser';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+import { FileText, FileSpreadsheet, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 
@@ -41,7 +43,7 @@ export default function Analysis() {
     setRuns(data);
     if (data.length > 0 && data[0].status === 'completed') {
       try {
-        const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: data[0].id }, '-recommended_quantity', 500);
+        const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: data[0].id }, '-recommended_quantity');
         setResults(items);
       } catch (err) {
         console.error(err);
@@ -67,7 +69,7 @@ export default function Analysis() {
   const handleViewRun = async (run) => {
     setLoadingRun(run.id);
     try {
-      const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: run.id }, '-recommended_quantity', 500);
+      const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: run.id }, '-recommended_quantity');
       setResults(items);
       setActiveTab('results');
     } catch (err) {
@@ -124,7 +126,7 @@ export default function Analysis() {
     <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analysis</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload a PDF inventory report and get purchase recommendations</p>
+        <p className="text-sm text-muted-foreground mt-1">Upload the stock report (Excel, CSV or PDF) to get purchase recommendations</p>
       </div>
 
       <div className="space-y-2">
@@ -149,7 +151,7 @@ export default function Analysis() {
               Purchase Recommendations
               {results && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
-                  ({results.filter(r => r.status !== 'unknown').length + manualItems.length})
+                  ({results.filter(r => r.status === 'critical' || r.status === 'low').length + manualItems.length})
                 </span>
               )}
             </TabsTrigger>
@@ -175,17 +177,25 @@ export default function Analysis() {
               <h2 className="text-lg font-semibold mb-3">Past Analysis Runs</h2>
               <div className="space-y-2">
                 {runs.map(run => (
-                  <Card key={run.id} className="p-4">
-                    <div className="flex items-center justify-between">
+                  <Card key={run.id} className="p-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="w-5 h-5 text-red-600 shrink-0" />
+                        {isSpreadsheet(run.pdf_file_name)
+                          ? <FileSpreadsheet className="w-5 h-5 text-success shrink-0" />
+                          : <FileText className="w-5 h-5 text-critical shrink-0" />}
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{run.pdf_file_name}</p>
-                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                          <p className="text-xs text-muted-foreground">
                             {moment(run.created_date).format('MMM D, YYYY HH:mm')}
-                            <span className="text-amber-600 ml-2">{run.items_to_purchase || 0} to purchase</span>
-                            <span className="text-red-600 ml-2">{run.critical_items || 0} critical</span>
-                            <span className="text-purple-600 ml-2">{run.unknown_items || 0} unknown</span>
+                            {run.status === 'completed' ? (
+                              <>
+                                <span className="text-warning ml-2">{run.items_to_purchase || 0} to purchase</span>
+                                <span className="text-critical ml-2">{run.critical_items || 0} critical</span>
+                                <span className="text-info ml-2">{run.unknown_items || 0} unknown</span>
+                              </>
+                            ) : (
+                              <span className={`ml-2 capitalize ${run.status === 'failed' ? 'text-critical' : 'text-warning'}`}>{run.status}</span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -232,6 +242,7 @@ export default function Analysis() {
             {results ? (
               <ResultsTable
                 results={results}
+                vendorId={selectedVendor}
                 vendorName={selectedVendorObj?.name}
                 currency={fileCurrency}
                 manualItems={manualItems}

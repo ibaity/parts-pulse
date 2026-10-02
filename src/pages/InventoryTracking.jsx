@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,18 +20,31 @@ export default function InventoryTracking() {
   const [loading, setLoading] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
 
+  // Consumption only compares the two latest snapshots, so load just their records (all of them).
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const snaps = await base44.entities.InventorySnapshot.filter({ vendor_id: selectedVendor }, '-snapshot_date', 100);
+      const latestTwo = [...snaps]
+        .sort((a, b) => new Date(b.snapshot_date) - new Date(a.snapshot_date))
+        .slice(0, 2);
+      const recordLists = await Promise.all(
+        latestTwo.map(snap => fetchAll(base44.entities.StockRecord, { snapshot_id: snap.id }))
+      );
+      setSnapshots(snaps);
+      setStockRecords(recordLists.flat());
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (selectedVendor) {
       setSearchParams({ vendor: selectedVendor });
       setLoading(true);
       setShowUploader(false);
-      Promise.all([
-        base44.entities.InventorySnapshot.filter({ vendor_id: selectedVendor }, '-snapshot_date', 100),
-        base44.entities.StockRecord.filter({ vendor_id: selectedVendor }, '-created_date', 1000),
-      ]).then(([snaps, records]) => {
-        setSnapshots(snaps);
-        setStockRecords(records);
-      }).catch(err => console.error(err)).finally(() => setLoading(false));
+      loadData();
     } else {
       setSnapshots([]);
       setStockRecords([]);
@@ -114,14 +128,7 @@ export default function InventoryTracking() {
                 vendorId={selectedVendor}
                 onUploaded={() => {
                   setShowUploader(false);
-                  setLoading(true);
-                  Promise.all([
-                    base44.entities.InventorySnapshot.filter({ vendor_id: selectedVendor }, '-snapshot_date', 100),
-                    base44.entities.StockRecord.filter({ vendor_id: selectedVendor }, '-created_date', 1000),
-                  ]).then(([snaps, records]) => {
-                    setSnapshots(snaps);
-                    setStockRecords(records);
-                  }).catch(err => console.error(err)).finally(() => setLoading(false));
+                  loadData();
                 }}
               />
             ) : (

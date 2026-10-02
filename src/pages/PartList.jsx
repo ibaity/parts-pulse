@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
@@ -32,8 +33,8 @@ export default function PartList() {
       setSearchParams({ vendor: selectedVendor });
       setLoading(true);
       Promise.all([
-        base44.entities.MasterItem.filter({ vendor_id: selectedVendor }, '-created_date', 500),
-        base44.entities.AnalysisItem.filter({ vendor_id: selectedVendor, matched_via: 'none' }, '-created_date', 500),
+        fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }),
+        fetchAll(base44.entities.AnalysisItem, { vendor_id: selectedVendor, matched_via: 'none' }),
         base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100),
       ]).then(([master, unknown, files]) => {
         setMasterItems(master);
@@ -60,7 +61,7 @@ export default function PartList() {
           }
           const latestRun = runs[0];
           setLastStockUpdate(latestRun.created_date);
-          const items = await base44.entities.AnalysisItem.filter({ analysis_run_id: latestRun.id }, '-created_date', 1000);
+          const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: latestRun.id });
           const map = {};
           const whNames = new Set();
           items.forEach(ai => {
@@ -246,7 +247,7 @@ export default function PartList() {
         vendorId={selectedVendor}
         currency={fileCurrency}
         onSaved={() => {
-          base44.entities.MasterItem.filter({ vendor_id: selectedVendor }, '-created_date', 500).then(setMasterItems);
+          fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
         }}
       />
     </div>

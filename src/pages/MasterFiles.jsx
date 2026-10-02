@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,7 +40,7 @@ export default function MasterFiles() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const items = await base44.entities.MasterItem.filter({ vendor_id: selectedVendor }, '-created_date', 2000);
+      const items = await fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor });
       const data = items.map(item => ({
         'Mediserv Item Code': item.mediserv_item_code || '',
         'Manufacturer Item Code': item.manufacturer_item_code || '',

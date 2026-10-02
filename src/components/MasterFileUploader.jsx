@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -92,7 +93,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         item_count: rows.length,
       });
 
-      const existingItems = await base44.entities.MasterItem.filter({ vendor_id: vendorId }, '-created_date', 500);
+      const existingItems = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
       const normalize = (s) => (s || '').toLowerCase().trim();
       const lookup = new Map();
       existingItems.forEach(item => {

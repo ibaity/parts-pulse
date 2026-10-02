@@ -1,5 +1,7 @@
 import { base44 } from '@/api/base44Client';
-import { runAnalysis } from '@/lib/analysisUtils';
+import { runAnalysis, normalizeName } from '@/lib/analysisUtils';
+import { fetchAll } from '@/lib/fetchAll';
+import { isSpreadsheet, parseSpreadsheetUrl } from '@/lib/reportParser';
 
 const CHUNK_SIZE = 500;
 
@@ -20,40 +22,67 @@ const EXTRACT_SCHEMA = {
   },
 };
 
-export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, onStep }) {
-  // Create the run record and extract the PDF in parallel — they don't depend on each other.
-  onStep?.('Extracting data from PDF (this may take a moment)...');
-  const [run, extractResult] = await Promise.all([
+async function extractFromPdf(fileUrl) {
+  const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+    file_url: fileUrl,
+    json_schema: EXTRACT_SCHEMA,
+  });
+  if (extractResult.status === 'error') {
+    throw new Error(extractResult.details || 'PDF extraction failed');
+  }
+  return Array.isArray(extractResult.output)
+    ? extractResult.output
+    : extractResult.output?.items || [];
+}
+
+// reportItems: rows already parsed in the browser (Excel/CSV). When omitted, the stored file is read.
+export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, onStep }) {
+  const spreadsheet = isSpreadsheet(pdfFileName);
+  onStep?.(spreadsheet ? 'Reading report...' : 'Extracting data from PDF (this may take a moment)...');
+  // Create the run record and read the report in parallel — they don't depend on each other.
+  const [run, pdfItems] = await Promise.all([
     base44.entities.AnalysisRun.create({
       vendor_id: vendorId,
       pdf_file_url: pdfFileUrl,
       pdf_file_name: pdfFileName,
       status: 'processing',
     }),
-    base44.integrations.Core.ExtractDataFromUploadedFile({
-      file_url: pdfFileUrl,
-      json_schema: EXTRACT_SCHEMA,
-    }),
+    reportItems
+      ? Promise.resolve(reportItems)
+      : spreadsheet ? parseSpreadsheetUrl(pdfFileUrl) : extractFromPdf(pdfFileUrl),
   ]);
 
-  if (extractResult.status === 'error') {
-    throw new Error(extractResult.details || 'PDF extraction failed');
+  try {
+    return await analyzeAndSave({ run, vendorId, pdfItems, onStep });
+  } catch (err) {
+    await base44.entities.AnalysisRun.update(run.id, { status: 'failed' }).catch(() => {});
+    throw err;
   }
+}
 
-  const pdfItems = Array.isArray(extractResult.output)
-    ? extractResult.output
-    : extractResult.output?.items || [];
-
+async function analyzeAndSave({ run, vendorId, pdfItems, onStep }) {
   if (pdfItems.length === 0) {
-    throw new Error('No items found in PDF. Make sure the PDF contains item codes and quantities.');
+    throw new Error('No items found in the report. Make sure it contains item codes and quantities.');
   }
 
   onStep?.('Loading master items and warehouses...');
   const [masterItems, warehouses] = await Promise.all([
-    base44.entities.MasterItem.filter({ vendor_id: vendorId }),
+    fetchAll(base44.entities.MasterItem, { vendor_id: vendorId }),
     base44.entities.Warehouse.list('-created_date', 200),
   ]);
-  const enabledWarehouses = warehouses.filter(w => w.enabled);
+
+  // Warehouses seen in the report but not defined yet are registered as enabled,
+  // so count them as enabled in this run too (otherwise the first run undercounts stock).
+  const known = new Set();
+  warehouses.forEach(w => {
+    if (w.name) known.add(normalizeName(w.name));
+    if (w.code) known.add(normalizeName(w.code));
+  });
+  const newWhNames = [...new Set(
+    pdfItems.map(r => (r.warehouse ?? '').toString().trim()).filter(Boolean)
+  )].filter(n => !known.has(normalizeName(n)));
+  const newWarehouses = newWhNames.map(name => ({ name, enabled: true, important: false, visible: true }));
+  const enabledWarehouses = [...warehouses.filter(w => w.enabled), ...newWarehouses];
 
   onStep?.('Running analysis...');
   const { results, summary } = runAnalysis(pdfItems, masterItems, enabledWarehouses);
@@ -64,27 +93,12 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, o
     analysis_run_id: run.id,
     vendor_id: vendorId,
   }));
-  for (let i = 0; i < itemsToSave.length; i += CHUNK_SIZE) {
-    await base44.entities.AnalysisItem.bulkCreate(itemsToSave.slice(i, i + CHUNK_SIZE));
-  }
-
-  // Auto-register warehouses found in the PDF
-  onStep?.('Registering warehouses...');
-  const whNames = new Set();
-  results.forEach(r => {
-    if (r.warehouse_breakdown) {
-      Object.keys(r.warehouse_breakdown).forEach(k => {
-        if (k && k.trim()) whNames.add(k.trim());
-      });
-    }
-  });
-  const existingWhNames = new Set(warehouses.map(w => (w.name || '').toLowerCase().trim()));
-  const newWhNames = [...whNames].filter(n => !existingWhNames.has(n.toLowerCase()));
-  if (newWhNames.length > 0) {
-    await base44.entities.Warehouse.bulkCreate(
-      newWhNames.map(name => ({ name, enabled: true, important: false, visible: true }))
-    );
-  }
+  const chunks = [];
+  for (let i = 0; i < itemsToSave.length; i += CHUNK_SIZE) chunks.push(itemsToSave.slice(i, i + CHUNK_SIZE));
+  await Promise.all([
+    ...chunks.map(chunk => base44.entities.AnalysisItem.bulkCreate(chunk)),
+    newWarehouses.length > 0 ? base44.entities.Warehouse.bulkCreate(newWarehouses) : null,
+  ]);
 
   onStep?.('Finalizing...');
   await base44.entities.AnalysisRun.update(run.id, {

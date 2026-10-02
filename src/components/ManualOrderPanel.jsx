@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
 
   useEffect(() => {
     if (vendorId) {
-      base44.entities.MasterItem.filter({ vendor_id: vendorId }, '-created_date', 500)
+      fetchAll(base44.entities.MasterItem, { vendor_id: vendorId })
         .then(setMasterItems)
         .catch(() => {});
     } else {
