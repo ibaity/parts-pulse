@@ -11,10 +11,10 @@ import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { useToast } from '@/components/ui/use-toast';
 import { FileText, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import moment from 'moment';
+import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function Analysis() {
-  const [vendors, setVendors] = useState([]);
-  const [selectedVendor, setSelectedVendor] = useState('');
+  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
   const [results, setResults] = useState(null);
   const [runs, setRuns] = useState([]);
   const [loadingRun, setLoadingRun] = useState(null);
@@ -24,14 +24,6 @@ export default function Analysis() {
   const [manualItems, setManualItems] = useState([]);
   const [activeTab, setActiveTab] = useState('analysis');
   const { toast } = useToast();
-
-  useEffect(() => {
-    const load = async () => {
-      const data = await base44.entities.Vendor.list('-created_date', 100);
-      setVendors(data);
-    };
-    load();
-  }, []);
 
   const loadManualItems = async () => {
     if (!selectedVendor) return;

@@ -7,15 +7,22 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
+import { lazy, Suspense } from 'react';
 import Layout from '@/components/Layout';
-import Dashboard from '@/pages/Dashboard';
-import Vendors from '@/pages/Vendors';
-import Warehouses from '@/pages/Warehouses';
-import MasterFiles from '@/pages/MasterFiles';
-import Analysis from '@/pages/Analysis';
-import PartList from '@/pages/PartList';
-import DeviceModels from '@/pages/DeviceModels';
-import InventoryTracking from '@/pages/InventoryTracking';
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Vendors = lazy(() => import('@/pages/Vendors'));
+const Warehouses = lazy(() => import('@/pages/Warehouses'));
+const MasterFiles = lazy(() => import('@/pages/MasterFiles'));
+const Analysis = lazy(() => import('@/pages/Analysis'));
+const PartList = lazy(() => import('@/pages/PartList'));
+const DeviceModels = lazy(() => import('@/pages/DeviceModels'));
+const InventoryTracking = lazy(() => import('@/pages/InventoryTracking'));
+
+const PageFallback = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+  </div>
+);
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -42,6 +49,7 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <Suspense fallback={<PageFallback />}>
     <Routes>
       {/* Add your page Route elements here */}
       <Route element={<Layout />}>
@@ -56,6 +64,7 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </Suspense>
   );
 };
 
