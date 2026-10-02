@@ -1,105 +1,134 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import StatCard from '@/components/StatCard';
-import { Package, ShoppingCart, AlertTriangle, HelpCircle, Building2 } from 'lucide-react';
+import { useVendors } from '@/hooks/useVendors';
+import { Package, ShoppingCart, AlertTriangle, HelpCircle, Building2, FlaskConical, ChevronRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 
-export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total_items: 0, items_to_purchase: 0, critical_items: 0, unknown_items: 0 });
-  const [runs, setRuns] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [vendorMap, setVendorMap] = useState(new Map());
+const STATUS_STYLES = {
+  completed: 'bg-success/10 text-success',
+  processing: 'bg-warning/10 text-warning',
+};
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [latestRuns, allVendors] = await Promise.all([
-          base44.entities.AnalysisRun.list('-created_date', 10),
-          base44.entities.Vendor.list('-created_date', 100),
-        ]);
-        setRuns(latestRuns);
-        setVendors(allVendors);
-        setVendorMap(new Map(allVendors.map(v => [v.id, v])));
-        const completed = latestRuns.find(r => r.status === 'completed');
-        if (completed) {
-          setStats({
-            total_items: completed.total_items || 0,
-            items_to_purchase: completed.items_to_purchase || 0,
-            critical_items: completed.critical_items || 0,
-            unknown_items: completed.unknown_items || 0,
-          });
-        }
-      } catch (err) {
-        console.error(err);
-      }
-      setLoading(false);
-    };
-    load();
-  }, []);
+function StatusBadge({ status }) {
+  const cls = STATUS_STYLES[status] || 'bg-muted text-muted-foreground';
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${cls}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {status || 'unknown'}
+    </span>
+  );
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+function DashboardSkeleton() {
+  return (
+    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
+      <Skeleton className="h-16 w-full max-w-md" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
       </div>
-    );
-  }
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { vendors, isLoading: vendorsLoading } = useVendors();
+  const { data: runs = [], isLoading: runsLoading } = useQuery({
+    queryKey: ['analysis-runs', 'recent'],
+    queryFn: () => base44.entities.AnalysisRun.list('-created_date', 10),
+  });
+
+  const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v])), [vendors]);
+  const latest = runs.find(r => r.status === 'completed');
+  const stats = {
+    total_items: latest?.total_items || 0,
+    items_to_purchase: latest?.items_to_purchase || 0,
+    critical_items: latest?.critical_items || 0,
+    unknown_items: latest?.unknown_items || 0,
+  };
+
+  if (vendorsLoading || runsLoading) return <DashboardSkeleton />;
 
   return (
     <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Overview of inventory analysis and purchase recommendations</p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-accent">{moment().format('dddd, MMMM D')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Overview of inventory analysis and purchase recommendations
+            {latest && <> · last analysis {moment(latest.created_date).fromNow()}</>}
+          </p>
+        </div>
+        <Button asChild className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-sm self-start sm:self-auto">
+          <Link to="/analysis"><FlaskConical className="w-4 h-4 mr-2" />New Analysis</Link>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Items" value={stats.total_items} icon={Package} accentClass="text-slate-700" subtitle="Unique items in last analysis" />
-        <StatCard title="Items to Purchase" value={stats.items_to_purchase} icon={ShoppingCart} accentClass="text-amber-600" subtitle="Below minimum stock" />
-        <StatCard title="Critical Items" value={stats.critical_items} icon={AlertTriangle} accentClass="text-red-600" subtitle="Zero stock" />
-        <StatCard title="Unknown Items" value={stats.unknown_items} icon={HelpCircle} accentClass="text-purple-600" subtitle="Not in master file" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Items" value={stats.total_items} icon={Package} tone="primary" subtitle="Unique items in last analysis" />
+        <StatCard title="Items to Purchase" value={stats.items_to_purchase} icon={ShoppingCart} tone="warning" subtitle="Below minimum stock" />
+        <StatCard title="Critical Items" value={stats.critical_items} icon={AlertTriangle} tone="critical" subtitle="Zero stock" />
+        <StatCard title="Unknown Items" value={stats.unknown_items} icon={HelpCircle} tone="info" subtitle="Not in master file" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 p-5">
-          <h3 className="font-semibold mb-4">Recent Analysis Runs</h3>
+        <Card className="lg:col-span-2 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <h3 className="font-semibold">Recent Analysis Runs</h3>
+            <Link to="/analysis" className="text-xs font-medium text-accent hover:underline inline-flex items-center">
+              View all<ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
           {runs.length === 0 ? (
-            <div className="py-12 text-center">
-              <ShoppingCart className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No analysis runs yet.</p>
-              <Link to="/analysis" className="text-xs text-primary hover:underline mt-2 inline-block">Run your first analysis</Link>
+            <div className="py-14 text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                <FileText className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No analysis runs yet</p>
+              <Link to="/analysis" className="text-xs text-accent hover:underline mt-1 inline-block">Run your first analysis</Link>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 font-medium">Vendor</th>
-                    <th className="text-left p-2 font-medium">File</th>
-                    <th className="text-right p-2 font-medium">Purchase</th>
-                    <th className="text-right p-2 font-medium">Critical</th>
-                    <th className="text-right p-2 font-medium">Unknown</th>
-                    <th className="text-left p-2 font-medium">Date</th>
+                <thead className="bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-2.5 font-medium">Vendor</th>
+                    <th className="text-left px-3 py-2.5 font-medium">Status</th>
+                    <th className="text-right px-3 py-2.5 font-medium">Purchase</th>
+                    <th className="text-right px-3 py-2.5 font-medium">Critical</th>
+                    <th className="text-right px-3 py-2.5 font-medium">Unknown</th>
+                    <th className="text-left px-5 py-2.5 font-medium">Date</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y">
                   {runs.map(run => {
                     const vendor = vendorMap.get(run.vendor_id);
                     return (
-                      <tr key={run.id} className="border-b hover:bg-muted/30">
-                        <td className="p-2">
-                          <div className="flex items-center gap-2">
-                            {vendor && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: vendor.color }} />}
-                            <span className="font-medium">{vendor?.name || 'Unknown'}</span>
+                      <tr key={run.id} className="hover:bg-muted/40 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: vendor?.color || 'hsl(var(--muted-foreground))' }} />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{vendor?.name || 'Unknown'}</p>
+                              <p className="text-xs text-muted-foreground truncate max-w-[180px]">{run.pdf_file_name || '-'}</p>
+                            </div>
                           </div>
                         </td>
-                        <td className="p-2 text-xs text-muted-foreground truncate max-w-[150px]">{run.pdf_file_name || '-'}</td>
-                        <td className="p-2 text-right font-medium text-amber-600">{run.items_to_purchase || 0}</td>
-                        <td className="p-2 text-right font-medium text-red-600">{run.critical_items || 0}</td>
-                        <td className="p-2 text-right font-medium text-purple-600">{run.unknown_items || 0}</td>
-                        <td className="p-2 text-xs text-muted-foreground whitespace-nowrap">{moment(run.created_date).format('MMM D, HH:mm')}</td>
+                        <td className="px-3 py-3"><StatusBadge status={run.status} /></td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-warning">{run.items_to_purchase || 0}</td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-critical">{run.critical_items || 0}</td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums text-info">{run.unknown_items || 0}</td>
+                        <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">{moment(run.created_date).format('MMM D, HH:mm')}</td>
                       </tr>
                     );
                   })}
@@ -109,30 +138,36 @@ export default function Dashboard() {
           )}
         </Card>
 
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
+        <Card className="shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
             <h3 className="font-semibold">Vendors</h3>
-            <Link to="/vendors" className="text-xs text-primary hover:underline">Manage</Link>
+            <Link to="/vendors" className="text-xs font-medium text-accent hover:underline">Manage</Link>
           </div>
           {vendors.length === 0 ? (
-            <div className="py-8 text-center">
-              <Building2 className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No vendors yet.</p>
-              <Link to="/vendors" className="text-xs text-primary hover:underline mt-2 inline-block">Add a vendor</Link>
+            <div className="py-12 text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                <Building2 className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">No vendors yet</p>
+              <Link to="/vendors" className="text-xs text-accent hover:underline mt-1 inline-block">Add a vendor</Link>
             </div>
           ) : (
-            <div className="space-y-1">
-              {vendors.map(v => (
-                <Link key={v.id} to={`/analysis?vendor=${v.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: v.color + '20' }}>
-                    <Building2 className="w-4 h-4" style={{ color: v.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{v.name}</p>
-                    {v.description && <p className="text-xs text-muted-foreground truncate">{v.description}</p>}
-                  </div>
-                </Link>
-              ))}
+            <div className="p-2 space-y-0.5">
+              {vendors.map(v => {
+                const color = v.color || '#1E3A5F';
+                return (
+                  <Link key={v.id} to={`/analysis?vendor=${v.id}`} className="group flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/60 transition-colors">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold" style={{ backgroundColor: color + '1A', color }}>
+                      {(v.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{v.name}</p>
+                      {v.description && <p className="text-xs text-muted-foreground truncate">{v.description}</p>}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
+                );
+              })}
             </div>
           )}
         </Card>
