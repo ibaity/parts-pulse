@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import Copyright from '@/components/Copyright';
+import AppLogo from '@/components/AppLogo';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, Stethoscope, ListChecks, Monitor, ClipboardList, TrendingDown, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, ListChecks, Monitor, ClipboardList, TrendingDown, Menu, X } from 'lucide-react';
 
 const navSections = [
   {
@@ -33,9 +34,7 @@ const navSections = [
 function Brand() {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sidebar-primary to-accent flex items-center justify-center shrink-0 shadow-lg shadow-black/20">
-        <Stethoscope className="w-5 h-5 text-white" />
-      </div>
+      <AppLogo className="w-10 h-10 shrink-0" />
       <div className="leading-tight">
         <p className="text-sm font-bold tracking-tight text-white">MEDISERV</p>
         <p className="text-[11px] text-sidebar-primary">Inventory Analyzer</p>
