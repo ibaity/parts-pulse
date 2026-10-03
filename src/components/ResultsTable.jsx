@@ -8,7 +8,7 @@ import {
   Download, PackageX, CheckCircle2, FileSpreadsheet, FileText, ChevronDown, Search, ArrowRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet,
 } from 'lucide-react';
-import { getCurrencySymbol } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
 import { isMissingFromReport } from '@/lib/analysisUtils';
 
 const FILTERS = [
@@ -208,7 +208,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
 
   const formatMoney = (val) => {
     const n = Number(val) || 0;
-    return n > 0 ? `${symbol} ${n.toLocaleString()}` : '-';
+    return n > 0 ? `${symbol} ${formatPrice(n)}` : '-';
   };
 
   if (purchaseItems.length === 0 && unknownItems.length === 0) {
@@ -227,7 +227,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
         <SummaryTile icon={ShoppingCart} label="To purchase" value={counts.all} tone="warning" />
         <SummaryTile icon={AlertTriangle} label="Critical (zero stock)" value={counts.critical} tone="critical" />
         <SummaryTile icon={EyeOff} label="Not in report" value={counts.missing} tone="info" />
-        <SummaryTile icon={Wallet} label="Estimated cost" value={grandTotal > 0 ? `${symbol} ${grandTotal.toLocaleString()}` : '-'} tone="primary" />
+        <SummaryTile icon={Wallet} label="Estimated cost" value={grandTotal > 0 ? `${symbol} ${formatPrice(grandTotal)}` : '-'} tone="primary" />
       </div>
 
       {purchaseItems.length > 0 && (
@@ -384,7 +384,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
 
           <div className="px-4 py-3 border-t bg-muted/30 rounded-b-xl flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Showing {visibleItems.length} of {purchaseItems.length} items{normalizedManual.length > 0 && ` · ${normalizedManual.length} manual items included in export`}</span>
-            {grandTotal > 0 && <span className="text-sm font-semibold text-foreground">Total: {symbol} {grandTotal.toLocaleString()}</span>}
+            {grandTotal > 0 && <span className="text-sm font-semibold text-foreground">Total: {symbol} {formatPrice(grandTotal)}</span>}
           </div>
         </Card>
       )}

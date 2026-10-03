@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useVendorSelection } from '@/hooks/useVendors';
 import { fetchAll } from '@/lib/fetchAll';
 import { computePeriods, allocateByMonth, yearsWithData } from '@/lib/consumptionFromRuns';
-import { getCurrencySymbol } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
 import { TrendingDown, Wallet, CalendarRange, Package, Info, X, HardHat, Warehouse as WarehouseIcon } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import VendorNotice from '@/components/VendorNotice';
@@ -118,7 +118,7 @@ export default function Consumption() {
   const yearData = useYearConsumption(selectedVendor, runIndex.data, year);
   const data = yearData.data;
   const symbol = getCurrencySymbol(runIndex.data?.currency);
-  const money = (n) => `${symbol} ${Math.round(n || 0).toLocaleString('en-US')}`;
+  const money = (n) => `${symbol} ${formatPrice(n)}`;
   const units = (n) => Math.round(n || 0).toLocaleString('en-US');
 
   const chartData = useMemo(() => (data?.months || []).map(m => ({

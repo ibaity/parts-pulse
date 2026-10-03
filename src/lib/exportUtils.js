@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import { getCurrencySymbol } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice, round2 } from '@/lib/partConstants';
 
 export function exportPurchaseExcel(purchaseItems, vendorName, currency) {
   const symbol = getCurrencySymbol(currency);
@@ -13,12 +13,18 @@ export function exportPurchaseExcel(purchaseItems, vendorName, currency) {
       'Current Stock': r.current_stock,
       'Minimum Stock': r.minimum_stock,
       'Recommended Qty': r.recommended_quantity,
-      [`Unit Price (${symbol})`]: price,
-      [`Total (${symbol})`]: total,
+      [`Unit Price (${symbol})`]: round2(price),
+      [`Total (${symbol})`]: round2(total),
       'Status': r.status === 'critical' ? 'Critical' : r.status === 'manual' ? 'Manual' : 'Low',
     };
   });
   const ws = XLSX.utils.json_to_sheet(data);
+  // Price and total columns (F, G) display with two decimals.
+  for (let row = 2; row <= data.length + 1; row++) {
+    for (const col of ['F', 'G']) {
+      if (ws[`${col}${row}`]) ws[`${col}${row}`].z = '#,##0.00';
+    }
+  }
   ws['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 10 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Purchase Recommendations');
@@ -58,7 +64,7 @@ export function exportPurchasePDF(purchaseItems, vendorName, currency) {
   doc.text(`Vendor: ${vendorName || 'N/A'}`, margin, 26);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, 32);
   doc.text(`Total Items: ${purchaseItems.length}`, margin, 38);
-  doc.text(`Grand Total: ${symbol} ${grandTotal.toLocaleString()}`, pageWidth - margin - 80, 38);
+  doc.text(`Grand Total: ${symbol} ${formatPrice(grandTotal)}`, pageWidth - margin - 80, 38);
 
   const rowHeight = 7;
   const headerHeight = 8;
@@ -114,10 +120,10 @@ export function exportPurchasePDF(purchaseItems, vendorName, currency) {
         val = item.status === 'critical' ? 'Critical' : item.status === 'manual' ? 'Manual' : 'Low';
       }
       if (col.key === 'unit_price') {
-        val = price > 0 ? price.toLocaleString() : '-';
+        val = price > 0 ? formatPrice(price) : '-';
       }
       if (col.key === 'total') {
-        val = total > 0 ? total.toLocaleString() : '-';
+        val = total > 0 ? formatPrice(total) : '-';
       }
       if (col.key === 'description' && val.length > 38) {
         val = val.substring(0, 38) + '...';

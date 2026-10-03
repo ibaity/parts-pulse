@@ -104,7 +104,7 @@ export default function MasterItemDialog({ open, onOpenChange, vendorId, currenc
             </div>
             <div className="space-y-1.5">
               <Label>Unit Price ({symbol})</Label>
-              <Input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
+              <Input type="number" step="0.01" placeholder="0.00" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
             </div>
           </div>
         </div>

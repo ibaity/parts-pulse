@@ -281,8 +281,9 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
                   <td className="p-1">
                     <input
                       type="number"
+                      step="0.01"
                       className="w-24 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                      placeholder="0"
+                      placeholder="0.00"
                       value={getValue(item, 'unit_price')}
                       onChange={e => updateField(item.id, 'unit_price', e.target.value)}
                     />

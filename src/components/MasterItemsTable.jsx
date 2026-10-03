@@ -257,8 +257,9 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                         <span className="text-xs text-muted-foreground shrink-0">{currencySymbol}</span>
                         <input
                           type="number"
+                          step="0.01"
                           className="w-24 bg-transparent rounded px-1 py-1 text-right text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary outline-none"
-                          value={getValue(item, 'unit_price')}
+                          value={edits[item.id]?.unit_price !== undefined ? edits[item.id].unit_price : (item.unit_price ?? '') === '' ? '' : Number(item.unit_price).toFixed(2)}
                           onChange={e => updateField(item.id, 'unit_price', e.target.value)}
                         />
                       </div>

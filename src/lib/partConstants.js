@@ -20,6 +20,13 @@ export function getCurrencySymbol(code) {
   return CURRENCIES.find(c => c.code === code)?.symbol || code || '';
 }
 
+// Prices and money amounts always show two decimals, e.g. 1,250.00
+export function formatPrice(value) {
+  return (Number(value) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
 export function fuzzyMatch(query, target) {
   if (!query) return true;
   if (!target) return false;

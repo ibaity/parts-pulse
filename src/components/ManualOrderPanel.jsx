@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2, ShoppingCart } from 'lucide-react';
-import { getCurrencySymbol } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
 
 const normalizeCode = (s) => (s || '').toLowerCase().trim();
 
@@ -174,7 +174,7 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
               {preview ? (
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium truncate">{preview.description || 'No description'}</span>
-                  <span className="shrink-0">{symbol} {(Number(preview.unit_price) || 0).toLocaleString()}</span>
+                  <span className="shrink-0">{symbol} {formatPrice(preview.unit_price)}</span>
                 </div>
               ) : (
                 'No matching master item. Use Custom Item to add manually.'
@@ -192,7 +192,7 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
             </div>
             <Input placeholder="Description *" value={customItem.description} onChange={e => setCustomItem({ ...customItem, description: e.target.value })} />
             <div className="flex items-center gap-2">
-              <Input placeholder={`Price (${symbol})`} type="number" value={customItem.unit_price} onChange={e => setCustomItem({ ...customItem, unit_price: e.target.value })} />
+              <Input placeholder={`Price (${symbol})`} type="number" step="0.01" value={customItem.unit_price} onChange={e => setCustomItem({ ...customItem, unit_price: e.target.value })} />
               <Button size="sm" onClick={handleAddCustom} disabled={adding}>Add</Button>
             </div>
           </div>
@@ -225,8 +225,8 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
                         onChange={e => handleUpdateQty(item.id, e.target.value)}
                       />
                     </td>
-                    <td className="p-2 text-right text-xs">{symbol} {(Number(item.unit_price) || 0).toLocaleString()}</td>
-                    <td className="p-2 text-right text-xs font-medium">{symbol} {((Number(item.unit_price) || 0) * (item.quantity || 0)).toLocaleString()}</td>
+                    <td className="p-2 text-right text-xs">{symbol} {formatPrice(item.unit_price)}</td>
+                    <td className="p-2 text-right text-xs font-medium">{symbol} {formatPrice((Number(item.unit_price) || 0) * (item.quantity || 0))}</td>
                     <td className="p-2 text-center">
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="w-3.5 h-3.5" />
