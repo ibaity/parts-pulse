@@ -62,6 +62,36 @@ function SummaryTile({ icon: Icon, label, value, tone }) {
   );
 }
 
+// How full the stock is compared to its minimum: red when empty, amber below minimum.
+function StockLevel({ current, min, compact = false }) {
+  const pct = min > 0 ? Math.max(0, Math.min(100, (current / min) * 100)) : 0;
+  const empty = current <= 0;
+  const bar = (
+    <div className={`h-1.5 rounded-full overflow-hidden ${empty ? 'bg-critical/15' : 'bg-muted'} ${compact ? 'flex-1' : 'w-24'}`}>
+      <div className={`h-full rounded-full ${empty ? 'bg-critical' : 'bg-warning'}`} style={{ width: `${empty ? 0 : Math.max(pct, 4)}%` }} />
+    </div>
+  );
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        {bar}
+        <span className={`text-[11px] tabular-nums whitespace-nowrap ${empty ? 'text-critical' : 'text-muted-foreground'}`}>
+          {empty ? 'Out of stock' : `${Math.round(pct)}% of minimum`}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-end gap-1" title={`${current} of ${min} minimum (${Math.round(pct)}%)`}>
+      <div className="flex items-baseline gap-1.5">
+        <span className={`text-base font-bold tabular-nums ${empty ? 'text-critical' : ''}`}>{current}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{Math.round(pct)}%</span>
+      </div>
+      {bar}
+    </div>
+  );
+}
+
 function StatusPill({ r }) {
   return (
     <span className="inline-flex flex-col items-center gap-1">
@@ -259,6 +289,9 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       <MiniStat label="Minimum" value={r.minimum_stock} />
                       <MiniStat label="Order" value={r.recommended_quantity} highlight />
                     </div>
+                    <div className="mt-2.5">
+                      <StockLevel compact current={Number(r.current_stock) || 0} min={Number(r.minimum_stock) || 0} />
+                    </div>
                     {lineTotal(r) > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground text-right">
                         <bdi>{formatMoney(r.unit_price)}</bdi> each · <bdi className="font-semibold text-foreground">{formatMoney(lineTotal(r))}</bdi>
@@ -311,7 +344,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                         <td className="px-4 py-3.5 font-mono text-[13px] font-bold whitespace-nowrap">{r.item_code}</td>
                         <td className="px-4 py-3.5">{r.description || <span className="text-muted-foreground">—</span>}</td>
                         <td className="px-4 py-3.5 text-right">
-                          <span className={`text-base font-bold tabular-nums ${current <= 0 ? 'text-critical' : ''}`}>{current}</span>
+                          <StockLevel current={current} min={Number(r.minimum_stock) || 0} />
                         </td>
                         <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">{r.minimum_stock}</td>
                         <td className="px-4 py-3.5 text-right">
