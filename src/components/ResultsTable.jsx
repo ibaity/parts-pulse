@@ -21,7 +21,8 @@ const FILTERS = [
 const STATUS_ORDER = { critical: 0, low: 1 };
 
 const COLUMNS = [
-  { key: 'item_code', label: 'Item', align: 'left' },
+  { key: 'item_code', label: 'Item No.', align: 'left' },
+  { key: 'description', label: 'Item', align: 'left' },
   { key: 'current_stock', label: 'In stock', align: 'right' },
   { key: 'minimum_stock', label: 'Minimum', align: 'right' },
   { key: 'recommended_quantity', label: 'Order qty', align: 'right' },
@@ -36,6 +37,7 @@ function sortValue(r, key) {
   if (key === 'total') return lineTotal(r);
   if (key === 'status') return STATUS_ORDER[r.status] ?? 9;
   if (key === 'item_code') return (r.item_code || '').toLowerCase();
+  if (key === 'description') return (r.description || '').toLowerCase();
   return Number(r[key]) || 0;
 }
 
@@ -158,7 +160,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   const toggleSort = (key) => {
     setSort(prev => prev.key === key
       ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: key === 'item_code' || key === 'status' ? 'asc' : 'desc' });
+      : { key, dir: ['item_code', 'description', 'status'].includes(key) ? 'asc' : 'desc' });
   };
 
   // Export libraries are large, so load them only when exporting.
@@ -306,10 +308,8 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                         } ${isOpen ? 'bg-accent/5' : i % 2 ? 'bg-muted/25 hover:bg-muted/50' : 'hover:bg-muted/50'}`}
                       >
                         <td className="pl-4 py-3.5 text-xs text-muted-foreground tabular-nums">{i + 1}</td>
-                        <td className="px-4 py-3.5">
-                          <p className="font-mono text-[13px] font-bold">{r.item_code}</p>
-                          {r.description && <p className="text-sm text-muted-foreground">{r.description}</p>}
-                        </td>
+                        <td className="px-4 py-3.5 font-mono text-[13px] font-bold whitespace-nowrap">{r.item_code}</td>
+                        <td className="px-4 py-3.5">{r.description || <span className="text-muted-foreground">—</span>}</td>
                         <td className="px-4 py-3.5 text-right">
                           <span className={`text-base font-bold tabular-nums ${current <= 0 ? 'text-critical' : ''}`}>{current}</span>
                         </td>
