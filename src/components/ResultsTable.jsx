@@ -23,7 +23,7 @@ const STATUS_ORDER = { critical: 0, low: 1 };
 const COLUMNS = [
   { key: 'item_code', label: 'Item No.', align: 'left' },
   { key: 'description', label: 'Item', align: 'left' },
-  { key: 'current_stock', label: 'In stock', align: 'right' },
+  { key: 'current_stock', label: 'In stock %', align: 'right', title: 'Sorts by stock as a % of the minimum' },
   { key: 'minimum_stock', label: 'Minimum', align: 'right' },
   { key: 'recommended_quantity', label: 'Order qty', align: 'right' },
   { key: 'unit_price', label: 'Unit price', align: 'right', className: 'hidden lg:table-cell' },
@@ -38,6 +38,12 @@ function sortValue(r, key) {
   if (key === 'status') return STATUS_ORDER[r.status] ?? 9;
   if (key === 'item_code') return (r.item_code || '').toLowerCase();
   if (key === 'description') return (r.description || '').toLowerCase();
+  // In stock sorts by how full the stock is (% of minimum), so the closest to running out come first.
+  if (key === 'current_stock') {
+    const current = Number(r.current_stock) || 0;
+    const min = Number(r.minimum_stock) || 0;
+    return min > 0 ? current / min : current > 0 ? Infinity : 0;
+  }
   return Number(r[key]) || 0;
 }
 
@@ -190,7 +196,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   const toggleSort = (key) => {
     setSort(prev => prev.key === key
       ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: ['item_code', 'description', 'status'].includes(key) ? 'asc' : 'desc' });
+      : { key, dir: ['item_code', 'description', 'status', 'current_stock'].includes(key) ? 'asc' : 'desc' });
   };
 
   // Export libraries are large, so load them only when exporting.
@@ -317,6 +323,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       <th key={col.key} className={`px-4 py-3 font-medium ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} ${col.className || ''}`}>
                         <button
                           onClick={() => toggleSort(col.key)}
+                          title={col.title}
                           className={`inline-flex items-center gap-1 hover:text-foreground ${active ? 'text-foreground' : ''}`}
                         >
                           {col.label}<Icon className="w-3 h-3" />
