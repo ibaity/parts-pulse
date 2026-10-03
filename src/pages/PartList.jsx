@@ -7,8 +7,9 @@ import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
-import { PackageSearch, AlertCircle, Plus, Clock, Check, Building2 } from 'lucide-react';
+import { PackageSearch, AlertCircle, Plus, Clock } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import VendorNotice from '@/components/VendorNotice';
 import { useVendorSelection } from '@/hooks/useVendors';
 
 const TABS = [
@@ -18,7 +19,7 @@ const TABS = [
 
 export default function PartList() {
   const [, setSearchParams] = useSearchParams();
-  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const { selectedVendor } = useVendorSelection();
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
   const [fileCurrency, setFileCurrency] = useState('SAR');
@@ -91,48 +92,10 @@ export default function PartList() {
   }, [selectedVendor]);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 w-full max-w-[1600px]">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={PackageSearch} title="Part List" subtitle="Manage all parts and classify unknown items from stock reports" />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Select Vendor</label>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {vendors.map(v => {
-            const isActive = selectedVendor === v.id;
-            const color = v.color || '#1E3A5F';
-            return (
-              <button
-                key={v.id}
-                onClick={() => setSelectedVendor(v.id)}
-                className={`relative shrink-0 w-56 text-right p-4 rounded-xl border-2 transition-all ${
-                  isActive
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
-                }`}
-              >
-                {isActive && (
-                  <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                    <Check className="w-3 h-3 text-primary-foreground" />
-                  </div>
-                )}
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: color + '20' }}>
-                  <Building2 className="w-5 h-5" style={{ color }} />
-                </div>
-                <p className="text-sm font-semibold truncate">{v.name}</p>
-                {v.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{v.description}</p>
-                )}
-                {v.manufacturer_code && (
-                  <p className="text-xs font-mono text-muted-foreground mt-1">{v.manufacturer_code}</p>
-                )}
-              </button>
-            );
-          })}
-          {vendors.length === 0 && (
-            <p className="text-sm text-muted-foreground py-4">No vendors yet. Add vendors first.</p>
-          )}
-        </div>
-      </div>
+      <VendorNotice />
 
       {selectedVendor && lastStockUpdate && (
         <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">

@@ -6,13 +6,13 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useVendorSelection } from '@/hooks/useVendors';
 import { fetchAll } from '@/lib/fetchAll';
 import { computePeriods, allocateByMonth, yearsWithData } from '@/lib/consumptionFromRuns';
 import { getCurrencySymbol } from '@/lib/partConstants';
 import { TrendingDown, Wallet, CalendarRange, Package, Info, X, HardHat, Warehouse as WarehouseIcon } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import VendorNotice from '@/components/VendorNotice';
 import moment from 'moment';
 
 const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'unit_price', 'status', 'warehouse_breakdown'];
@@ -97,7 +97,7 @@ function ChartTooltip({ active, payload, render }) {
 }
 
 export default function Consumption() {
-  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const { selectedVendor } = useVendorSelection();
   const [year, setYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [whView, setWhView] = useState('engineers');
@@ -141,31 +141,26 @@ export default function Consumption() {
   const loading = runIndex.isLoading || (yearData.isLoading && !!year);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
-      <PageHeader icon={TrendingDown} title="Consumption" subtitle="Yearly and monthly value of parts consumed, from stock changes between your analysis reports" />
-
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div className="space-y-2 flex-1 max-w-md">
-          <label className="text-sm font-medium">Vendor</label>
-          <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-            <SelectTrigger><SelectValue placeholder="Choose a vendor..." /></SelectTrigger>
-            <SelectContent>
-              {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="p-4 sm:p-8 space-y-6">
+      <PageHeader icon={TrendingDown} title="Consumption" subtitle="Yearly and monthly value of parts consumed, from stock changes between your analysis reports">
         {years.length > 0 && (
-          <div className="space-y-2 w-36">
-            <label className="text-sm font-medium">Year</label>
-            <Select value={year ? String(year) : undefined} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
-              <SelectContent>
-                {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap gap-1.5">
+            {years.map(y => (
+              <button
+                key={y}
+                onClick={() => setYear(y)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  year === y ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted border-border'
+                }`}
+              >
+                {y}
+              </button>
+            ))}
           </div>
         )}
-      </div>
+      </PageHeader>
+
+      <VendorNotice />
 
       {!selectedVendor ? null : loading ? (
         <div className="space-y-4">

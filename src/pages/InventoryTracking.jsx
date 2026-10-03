@@ -4,18 +4,18 @@ import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import SnapshotUploader from '@/components/SnapshotUploader';
 import ConsumptionTable from '@/components/ConsumptionTable';
 import { calculateConsumption } from '@/lib/consumptionUtils';
 import { ClipboardList, TrendingUp, Plus, Calendar, Package } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import VendorNotice from '@/components/VendorNotice';
 import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function InventoryTracking() {
   const [, setSearchParams] = useSearchParams();
-  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const { selectedVendor } = useVendorSelection();
   const [snapshots, setSnapshots] = useState([]);
   const [stockRecords, setStockRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -59,22 +59,10 @@ export default function InventoryTracking() {
   const latestSnapshot = snapshots[0];
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 w-full max-w-[1600px]">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={ClipboardList} title="Stock Tracking" subtitle="Upload inventory snapshots and track consumption rates over time" />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Select Vendor</label>
-        <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-          <SelectTrigger className="w-full max-w-md">
-            <SelectValue placeholder="Choose a vendor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {vendors.map(v => (
-              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <VendorNotice />
 
       {selectedVendor && (
         loading ? (

@@ -1,7 +1,7 @@
 import { useId } from 'react';
 
 // "Signal Nut" mark: a hex nut (parts) sending pulse waves (live stock monitoring).
-export default function AppLogo({ className = 'w-9 h-9', title = 'MEDISERV Inventory' }) {
+export default function AppLogo({ className = 'w-9 h-9', title = 'Part Plus' }) {
   const gid = useId().replace(/:/g, '');
   return (
     <svg viewBox="0 0 64 64" className={className} role="img" aria-label={title}>

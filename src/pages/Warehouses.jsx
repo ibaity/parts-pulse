@@ -70,7 +70,7 @@ export default function Warehouses() {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={WarehouseIcon} title="Warehouses" subtitle="Detected automatically from your stock reports. Choose which ones count toward available stock." />
 
       <Card className="p-5">

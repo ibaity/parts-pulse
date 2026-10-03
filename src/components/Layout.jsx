@@ -1,149 +1,160 @@
 import { useEffect, useState } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, ListChecks, Monitor,
+  ClipboardList, TrendingDown, Menu, X, ChevronDown, Settings,
+} from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Copyright from '@/components/Copyright';
 import AppLogo from '@/components/AppLogo';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, ListChecks, Monitor, ClipboardList, TrendingDown, Menu, X } from 'lucide-react';
+import { VendorProvider, useVendorSelection } from '@/hooks/useVendors';
 
-const navSections = [
-  {
-    title: 'Overview',
-    items: [
-      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { path: '/analysis', label: 'Analysis', icon: FlaskConical },
-    ],
-  },
-  {
-    title: 'Inventory',
-    items: [
-      { path: '/part-list', label: 'Part List', icon: ListChecks },
-      { path: '/consumption', label: 'Consumption', icon: TrendingDown },
-      { path: '/inventory-tracking', label: 'Stock Tracking', icon: ClipboardList },
-      { path: '/device-models', label: 'Device Models', icon: Monitor },
-    ],
-  },
-  {
-    title: 'Setup',
-    items: [
-      { path: '/vendors', label: 'Vendors', icon: Building2 },
-      { path: '/warehouses', label: 'Warehouses', icon: WarehouseIcon },
-      { path: '/master-files', label: 'Master Files', icon: FileSpreadsheet },
-    ],
-  },
+export const APP_NAME = 'Part Plus';
+
+const mainNav = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/analysis', label: 'Analysis', icon: FlaskConical },
+  { path: '/consumption', label: 'Consumption', icon: TrendingDown },
+  { path: '/part-list', label: 'Part List', icon: ListChecks },
+  { path: '/inventory-tracking', label: 'Stock Tracking', icon: ClipboardList },
+  { path: '/device-models', label: 'Device Models', icon: Monitor },
 ];
+
+const setupNav = [
+  { path: '/vendors', label: 'Vendors', icon: Building2 },
+  { path: '/warehouses', label: 'Warehouses', icon: WarehouseIcon },
+  { path: '/master-files', label: 'Master Files', icon: FileSpreadsheet },
+];
+
+const allNavItems = [...mainNav, ...setupNav];
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3">
-      <AppLogo className="w-10 h-10 shrink-0" />
-      <div className="leading-tight">
-        <p className="text-sm font-bold tracking-tight text-white">MEDISERV</p>
-        <p className="text-[11px] text-sidebar-primary">Inventory Analyzer</p>
-      </div>
+    <Link to="/" className="flex items-center gap-2.5 shrink-0">
+      <AppLogo className="w-9 h-9" title={APP_NAME} />
+      <span className="text-base font-bold tracking-tight text-white whitespace-nowrap">
+        Part <span className="text-sidebar-primary">Plus</span>
+      </span>
+    </Link>
+  );
+}
+
+// Vendor is chosen once here and shared by every page.
+function VendorSwitcher({ className = '' }) {
+  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const current = vendors.find(v => v.id === selectedVendor);
+  return (
+    <Select value={selectedVendor || undefined} onValueChange={setSelectedVendor}>
+      <SelectTrigger
+        aria-label="Vendor"
+        className={`h-9 rounded-full border-sidebar-border bg-sidebar-accent text-white text-sm font-medium gap-2 focus:ring-sidebar-ring ${className}`}
+      >
+        {!current && <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-sidebar-primary" />}
+        <SelectValue placeholder="Vendor" />
+      </SelectTrigger>
+      <SelectContent align="end">
+        {vendors.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">No vendors yet — add one in Setup › Vendors</div>}
+        {vendors.map(v => (
+          <SelectItem key={v.id} value={v.id}>
+            <span className="inline-flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: v.color || '#1f8f66' }} />{v.name}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function NavLink({ item, active, onClick, block = false }) {
+  return (
+    <Link
+      to={item.path}
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+        block ? 'px-3 py-2.5' : 'px-3 py-1.5'
+      } ${active ? 'bg-sidebar-accent text-white' : 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white'}`}
+    >
+      <item.icon className={`w-4 h-4 shrink-0 ${block ? '' : 'hidden 2xl:block'} ${active ? 'text-sidebar-primary' : ''}`} />
+      {item.label}
+    </Link>
+  );
+}
+
+function Shell() {
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const currentPage = allNavItems.find(i => i.path === location.pathname);
+  const inSetup = setupNav.some(i => i.path === location.pathname);
+
+  // Browser tab shows the current page name.
+  useEffect(() => {
+    document.title = currentPage ? `${currentPage.label} · ${APP_NAME}` : APP_NAME;
+  }, [currentPage]);
+
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+
+  return (
+    <div className="flex flex-col h-screen bg-background">
+      <header className="bg-sidebar shrink-0 relative z-30">
+        <div className="h-14 px-4 lg:px-6 flex items-center gap-3 lg:gap-5">
+          <button onClick={() => setMenuOpen(o => !o)} aria-label="Menu" className="lg:hidden text-white p-1 -ml-1">
+            {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+          <Brand />
+
+          <nav className="hidden lg:flex items-center gap-0.5 min-w-0">
+            {mainNav.map(item => <NavLink key={item.path} item={item} active={location.pathname === item.path} />)}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium outline-none ${
+                  inSetup ? 'bg-sidebar-accent text-white' : 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white'
+                }`}
+              >
+                <Settings className={`w-4 h-4 hidden 2xl:block ${inSetup ? 'text-sidebar-primary' : ''}`} />Setup<ChevronDown className="w-3.5 h-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {setupNav.map(item => (
+                  <DropdownMenuItem key={item.path} asChild className="cursor-pointer">
+                    <Link to={item.path}><item.icon className="w-4 h-4 mr-2" />{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
+
+          <div className="ml-auto flex items-center min-w-0">
+            <VendorSwitcher className="w-[160px] sm:w-[200px] 2xl:w-[240px]" />
+          </div>
+        </div>
+
+        {/* Mobile / tablet menu */}
+        {menuOpen && (
+          <nav className="lg:hidden border-t border-sidebar-border px-3 py-3 space-y-0.5 max-h-[70vh] overflow-y-auto">
+            {mainNav.map(item => <NavLink key={item.path} block item={item} active={location.pathname === item.path} />)}
+            <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Setup</p>
+            {setupNav.map(item => <NavLink key={item.path} block item={item} active={location.pathname === item.path} />)}
+          </nav>
+        )}
+      </header>
+
+      <main className="flex-1 overflow-auto flex flex-col">
+        <div className="flex-1 w-full max-w-[1440px] mx-auto">
+          <Outlet />
+        </div>
+        <footer className="border-t px-4 py-5 text-center">
+          <Copyright inline className="text-muted-foreground" />
+        </footer>
+      </main>
     </div>
   );
 }
 
-const allNavItems = navSections.flatMap(s => s.items);
-
 export default function Layout() {
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const currentPage = allNavItems.find(i => i.path === location.pathname);
-
-  // Browser tab shows the current page name.
-  useEffect(() => {
-    document.title = currentPage ? `${currentPage.label} · MEDISERV Inventory` : 'MEDISERV Inventory';
-  }, [currentPage]);
-
-  const sidebarContent = (
-    <>
-      <div className="px-5 py-5 border-b border-sidebar-border">
-        <Brand />
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-        {navSections.map(section => (
-          <div key={section.title}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-              {section.title}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map(item => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white'
-                    }`}
-                  >
-                    {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-sidebar-primary" />}
-                    <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-sidebar-primary' : ''}`} />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-      <div className="px-5 py-4 border-t border-sidebar-border">
-        <Copyright className="text-sidebar-foreground/60" />
-      </div>
-    </>
-  );
-
   return (
-    <div className="flex h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 bg-sidebar text-sidebar-foreground flex-col shrink-0">
-        {sidebarContent}
-      </aside>
-
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile drawer */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex-col md:hidden ${
-          sidebarOpen ? 'flex' : 'hidden'
-        }`}
-      >
-        <button
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Close menu"
-          className="absolute top-5 right-4 text-sidebar-foreground hover:text-white z-10"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        {sidebarContent}
-      </aside>
-
-      {/* Main area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-sidebar shrink-0 relative z-30">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Open menu" className="text-white p-1 -ml-1">
-            <Menu className="w-6 h-6" />
-          </button>
-          <Brand />
-          {currentPage && <span className="ml-auto text-xs font-medium text-sidebar-foreground truncate">{currentPage.label}</span>}
-        </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-          <footer className="md:hidden px-4 py-6 border-t text-center">
-            <Copyright className="text-muted-foreground" />
-          </footer>
-        </main>
-      </div>
-    </div>
+    <VendorProvider>
+      <Shell />
+    </VendorProvider>
   );
 }

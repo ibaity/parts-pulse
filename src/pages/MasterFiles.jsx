@@ -5,16 +5,16 @@ import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import MasterFileUploader from '@/components/MasterFileUploader';
 import { FileSpreadsheet, ArrowRight, Download } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import VendorNotice from '@/components/VendorNotice';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function MasterFiles() {
-  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const { vendors, selectedVendor } = useVendorSelection();
   const [masterFiles, setMasterFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -64,22 +64,10 @@ export default function MasterFiles() {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-5xl">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={FileSpreadsheet} title="Master Files" subtitle="Upload each vendor's master parts list (Excel) with minimum stock and prices" />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Select Vendor</label>
-        <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-          <SelectTrigger className="w-full max-w-md">
-            <SelectValue placeholder="Choose a vendor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {vendors.map(v => (
-              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <VendorNotice />
 
       {selectedVendor && (
         <>

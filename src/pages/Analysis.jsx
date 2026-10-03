@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AnalysisRunner from '@/components/AnalysisRunner';
 import ResultsTable from '@/components/ResultsTable';
@@ -13,11 +12,12 @@ import { isSpreadsheet } from '@/lib/reportParser';
 import { useToast } from '@/components/ui/use-toast';
 import { FileText, FileSpreadsheet, ChevronRight, RefreshCw, Loader2, FlaskConical } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import VendorNotice from '@/components/VendorNotice';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 
 export default function Analysis() {
-  const { vendors, selectedVendor, setSelectedVendor } = useVendorSelection();
+  const { vendors, selectedVendor } = useVendorSelection();
   const [results, setResults] = useState(null);
   const [shownRun, setShownRun] = useState(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
@@ -141,22 +141,10 @@ export default function Analysis() {
   const selectedVendorObj = vendors.find(v => v.id === selectedVendor);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-6xl">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={FlaskConical} title="Analysis" subtitle="Upload the stock report (Excel, CSV or PDF) to get purchase recommendations" />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Select Vendor</label>
-        <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-          <SelectTrigger className="w-full max-w-md">
-            <SelectValue placeholder="Choose a vendor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {vendors.map(v => (
-              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <VendorNotice />
 
       {selectedVendor && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -60,7 +60,7 @@ export default function DeviceModels() {
     const vendor = vendors.get(selected.vendor_id);
     const masterFile = masterFiles.get(selected.master_file_id);
     return (
-      <div className="p-4 sm:p-8 space-y-6 max-w-5xl">
+      <div className="p-4 sm:p-8 space-y-6">
         <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className="mb-2">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Models
         </Button>
@@ -76,7 +76,7 @@ export default function DeviceModels() {
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-5xl">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={Monitor} title="Device Models" subtitle="Manage device models linked to master part sheets">
         <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" /> Add Model

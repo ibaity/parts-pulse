@@ -69,7 +69,7 @@ export default function Vendors() {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-4xl">
+    <div className="p-4 sm:p-8 space-y-6">
       <PageHeader icon={Building2} title="Vendors" subtitle="Manage vendor profiles — item codes are tied to each vendor">
         <Button onClick={handleAdd}>
           <Plus className="w-4 h-4 mr-2" /> Add Vendor
