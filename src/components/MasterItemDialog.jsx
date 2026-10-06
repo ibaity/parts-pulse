@@ -42,10 +42,14 @@ export default function MasterItemDialog({ open, onOpenChange, vendorId, currenc
     setSaving(true);
     try {
       // Don't create a second record for a code that already exists for this vendor.
-      const codes = [mediservCode, manufacturerCode].map(normalizeCode).filter(Boolean);
-      if (codes.length) {
+      // The Mediserv code identifies a part; the manufacturer code is only checked when no Mediserv code is given.
+      const mediservKey = normalizeCode(mediservCode);
+      const makerKey = normalizeCode(manufacturerCode);
+      if (mediservKey || makerKey) {
         const existing = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
-        const clash = existing.find(m => codes.includes(normalizeCode(m.mediserv_item_code)) || codes.includes(normalizeCode(m.manufacturer_item_code)));
+        const clash = existing.find(m => (mediservKey
+          ? normalizeCode(m.mediserv_item_code) === mediservKey
+          : !normalizeCode(m.mediserv_item_code) && normalizeCode(m.manufacturer_item_code) === makerKey));
         if (clash) {
           toast({
             title: 'Part already exists',

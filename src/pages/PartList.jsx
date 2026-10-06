@@ -33,7 +33,7 @@ export default function PartList() {
   const [warehouseNames, setWarehouseNames] = useState([]);
   const [lastStockUpdate, setLastStockUpdate] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
-  const duplicateGroups = useMemo(() => findMasterDuplicates(masterItems), [masterItems]);
+  const { groups: duplicateGroups, suspicious: suspiciousGroups } = useMemo(() => findMasterDuplicates(masterItems), [masterItems]);
   const extraRecords = duplicateGroups.reduce((n, g) => n + g.length - 1, 0);
   const reloadMaster = () => fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
 
@@ -162,12 +162,15 @@ export default function PartList() {
                 </>
               ) : (
                 <>
-                  {duplicateGroups.length > 0 && (
+                  {(duplicateGroups.length > 0 || suspiciousGroups.length > 0) && (
                     <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl border border-warning/30 bg-warning/5">
                       <Copy className="w-4 h-4 text-warning shrink-0" />
                       <p className="text-sm">
                         <span className="font-semibold">{duplicateGroups.length} parts are recorded more than once</span>
                         <span className="text-muted-foreground"> ({extraRecords} extra records)</span>
+                        {suspiciousGroups.length > 0 && (
+                          <span className="text-muted-foreground"> · {suspiciousGroups.length} groups need manual review</span>
+                        )}
                       </p>
                       <Button size="sm" variant="outline" className="sm:ml-auto" onClick={() => setMergeOpen(true)}>
                         Review &amp; merge
@@ -214,6 +217,7 @@ export default function PartList() {
         open={mergeOpen}
         onOpenChange={setMergeOpen}
         groups={duplicateGroups}
+        suspicious={suspiciousGroups}
         currency={getCurrencySymbol(fileCurrency)}
         onMerged={reloadMaster}
       />

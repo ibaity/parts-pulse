@@ -96,8 +96,26 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
 
       const existingItems = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
       // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123").
+      // The Mediserv code identifies a part. Manufacturer codes are often a shared brand name, so they
+      // are only used for rows/records that have no Mediserv code, and only if a single record has that code.
       const lookup = new Map();
-      const remember = (item, ...codes) => codes.forEach(c => { const k = normalizeCode(c); if (k && !lookup.has(k)) lookup.set(k, item); });
+      const makerLookup = new Map();
+      const makerCount = new Map();
+      const remember = (item, mediserv, maker) => {
+        const m = normalizeCode(mediserv);
+        const f = normalizeCode(maker);
+        if (m && !lookup.has(m)) lookup.set(m, item);
+        if (!m && f) {
+          makerCount.set(f, (makerCount.get(f) || 0) + 1);
+          if (!makerLookup.has(f)) makerLookup.set(f, item);
+        }
+      };
+      const findExisting = (mediserv, maker) => {
+        const m = normalizeCode(mediserv);
+        if (m) return lookup.get(m);
+        const f = normalizeCode(maker);
+        return f && makerCount.get(f) === 1 ? makerLookup.get(f) : undefined;
+      };
       existingItems.forEach(item => remember(item, item.mediserv_item_code, item.manufacturer_item_code));
 
       const toCreate = [];
@@ -123,7 +141,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         };
         if (!normalizeCode(mediservCode) && !normalizeCode(manufacturerCode)) return;
 
-        const existing = lookup.get(normalizeCode(mediservCode)) || lookup.get(normalizeCode(manufacturerCode));
+        const existing = findExisting(mediservCode, manufacturerCode);
 
         if (existing?.__new) {
           // Same part repeated inside this file: complete the queued row instead of creating it twice.

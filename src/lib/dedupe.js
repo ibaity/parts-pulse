@@ -3,15 +3,31 @@ import { normalizeCode } from '@/lib/analysisUtils';
 const time = (r) => new Date(r.updated_date || r.created_date || 0).getTime();
 const newestFirst = (a, b) => time(b) - time(a);
 
+// Manufacturer codes are often a brand name ("Werfen") shared by many different parts,
+// so the mediserv code is the part's identity. A manufacturer code is only used for records
+// that have no mediserv code, and only when almost nobody else uses it.
+const MAX_SHARED_MANUFACTURER = 2;
+const MAX_GROUP_SIZE = 5;
+
+function manufacturerUsage(masterItems) {
+  const usage = new Map();
+  for (const m of masterItems) {
+    const code = normalizeCode(m.manufacturer_item_code);
+    if (code) usage.set(code, (usage.get(code) || 0) + 1);
+  }
+  return usage;
+}
+
 // Unknown items are saved once per analysis run, so the same code repeats across reports.
 // Keep one row per code (the newest) and remember every copy's id.
 export function groupUnknownItems(unknownItems, masterItems) {
+  const usage = manufacturerUsage(masterItems);
   const masterCodes = new Set();
   for (const m of masterItems) {
-    const a = normalizeCode(m.mediserv_item_code);
-    const b = normalizeCode(m.manufacturer_item_code);
-    if (a) masterCodes.add(a);
-    if (b) masterCodes.add(b);
+    const mediserv = normalizeCode(m.mediserv_item_code);
+    const maker = normalizeCode(m.manufacturer_item_code);
+    if (mediserv) masterCodes.add(mediserv);
+    else if (maker && usage.get(maker) <= MAX_SHARED_MANUFACTURER) masterCodes.add(maker);
   }
   const groups = new Map();
   for (const u of unknownItems) {
@@ -26,28 +42,29 @@ export function groupUnknownItems(unknownItems, masterItems) {
   });
 }
 
-// Master items that share a normalized mediserv OR manufacturer code are the same part.
-// Union-find joins chains (A=B by one code, B=C by the other).
+// Finds master items that are the same part recorded more than once.
+// Returns { groups, suspicious }: groups are safe to merge; suspicious groups are too large
+// to be a plain duplicate (probably unrelated parts sharing a code) and are never auto-merged.
 export function findMasterDuplicates(masterItems) {
-  const parent = masterItems.map((_, i) => i);
-  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  const firstByCode = new Map();
-  masterItems.forEach((m, i) => {
-    for (const field of ['mediserv_item_code', 'manufacturer_item_code']) {
-      const code = normalizeCode(m[field]);
-      if (!code) continue;
-      const key = `${field}:${code}`;
-      if (firstByCode.has(key)) parent[find(i)] = find(firstByCode.get(key));
-      else firstByCode.set(key, i);
-    }
-  });
-  const groups = new Map();
-  masterItems.forEach((m, i) => {
-    const root = find(i);
-    if (!groups.has(root)) groups.set(root, []);
-    groups.get(root).push(m);
-  });
-  return [...groups.values()].filter(g => g.length > 1).map(g => [...g].sort(newestFirst));
+  const usage = manufacturerUsage(masterItems);
+  const byKey = new Map();
+  for (const m of masterItems) {
+    const mediserv = normalizeCode(m.mediserv_item_code);
+    const maker = normalizeCode(m.manufacturer_item_code);
+    let key = null;
+    if (mediserv) key = `m:${mediserv}`;
+    else if (maker && usage.get(maker) <= MAX_SHARED_MANUFACTURER) key = `f:${maker}`;
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(m);
+  }
+  const groups = [];
+  const suspicious = [];
+  for (const g of byKey.values()) {
+    if (g.length < 2) continue;
+    (g.length > MAX_GROUP_SIZE ? suspicious : groups).push([...g].sort(newestFirst));
+  }
+  return { groups, suspicious };
 }
 
 const MERGE_FIELDS = ['mediserv_item_code', 'manufacturer_item_code', 'description', 'category', 'unit', 'master_file_id', 'minimum_stock', 'unit_price'];
