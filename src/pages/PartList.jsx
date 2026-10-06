@@ -8,7 +8,8 @@ import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
-import { PackageSearch, AlertCircle, Plus, Clock, Copy } from 'lucide-react';
+import { PackageSearch, AlertCircle, Plus, Clock, Copy, Tag } from 'lucide-react';
+import PriceUpdateDialog from '@/components/PriceUpdateDialog';
 import MergeDuplicatesDialog from '@/components/MergeDuplicatesDialog';
 import { getCurrencySymbol } from '@/lib/partConstants';
 import PageHeader from '@/components/PageHeader';
@@ -33,6 +34,7 @@ export default function PartList() {
   const [warehouseNames, setWarehouseNames] = useState([]);
   const [lastStockUpdate, setLastStockUpdate] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [priceOpen, setPriceOpen] = useState(false);
   const { groups: duplicateGroups, suspicious: suspiciousGroups } = useMemo(() => findMasterDuplicates(masterItems), [masterItems]);
   const extraRecords = duplicateGroups.reduce((n, g) => n + g.length - 1, 0);
   const reloadMaster = () => fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
@@ -177,7 +179,10 @@ export default function PartList() {
                       </Button>
                     </div>
                   )}
-                  <div className="flex justify-end mb-3">
+                  <div className="flex justify-end gap-2 mb-3">
+                    <Button size="sm" variant="outline" onClick={() => setPriceOpen(true)}>
+                      <Tag className="w-4 h-4 mr-1" /> Update prices
+                    </Button>
                     <Button size="sm" onClick={() => setAddPartOpen(true)}>
                       <Plus className="w-4 h-4 mr-1" /> Add Part
                     </Button>
@@ -212,6 +217,15 @@ export default function PartList() {
           </>
         )
       )}
+
+      <PriceUpdateDialog
+        open={priceOpen}
+        onOpenChange={setPriceOpen}
+        vendorId={selectedVendor}
+        masterItems={masterItems}
+        currency={getCurrencySymbol(fileCurrency)}
+        onUpdated={reloadMaster}
+      />
 
       <MergeDuplicatesDialog
         open={mergeOpen}

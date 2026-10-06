@@ -9,7 +9,7 @@ const newestFirst = (a, b) => time(b) - time(a);
 const MAX_SHARED_MANUFACTURER = 2;
 const MAX_GROUP_SIZE = 5;
 
-function manufacturerUsage(masterItems) {
+export function manufacturerUsage(masterItems) {
   const usage = new Map();
   for (const m of masterItems) {
     const code = normalizeCode(m.manufacturer_item_code);
