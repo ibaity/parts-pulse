@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { PART_CATEGORIES, getCurrencySymbol } from '@/lib/partConstants';
+import { fetchAll } from '@/lib/fetchAll';
+import { normalizeCode } from '@/lib/analysisUtils';
 
 export default function MasterItemDialog({ open, onOpenChange, vendorId, currency, onSaved }) {
   const [mediservCode, setMediservCode] = useState('');
@@ -39,6 +41,21 @@ export default function MasterItemDialog({ open, onOpenChange, vendorId, currenc
     }
     setSaving(true);
     try {
+      // Don't create a second record for a code that already exists for this vendor.
+      const codes = [mediservCode, manufacturerCode].map(normalizeCode).filter(Boolean);
+      if (codes.length) {
+        const existing = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
+        const clash = existing.find(m => codes.includes(normalizeCode(m.mediserv_item_code)) || codes.includes(normalizeCode(m.manufacturer_item_code)));
+        if (clash) {
+          toast({
+            title: 'Part already exists',
+            description: `${clash.mediserv_item_code || clash.manufacturer_item_code}${clash.description ? ` — ${clash.description}` : ''} is already in the list. Edit it there instead.`,
+            variant: 'destructive',
+          });
+          setSaving(false);
+          return;
+        }
+      }
       await base44.entities.MasterItem.create({
         vendor_id: vendorId,
         mediserv_item_code: mediservCode.trim(),

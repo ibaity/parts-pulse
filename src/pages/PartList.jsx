@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
+import { groupUnknownItems, findMasterDuplicates } from '@/lib/dedupe';
 import { Card } from '@/components/ui/card';
 import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
 import MasterItemDialog from '@/components/MasterItemDialog';
 import { Button } from '@/components/ui/button';
-import { PackageSearch, AlertCircle, Plus, Clock } from 'lucide-react';
+import { PackageSearch, AlertCircle, Plus, Clock, Copy } from 'lucide-react';
+import MergeDuplicatesDialog from '@/components/MergeDuplicatesDialog';
+import { getCurrencySymbol } from '@/lib/partConstants';
 import PageHeader from '@/components/PageHeader';
 import VendorNotice from '@/components/VendorNotice';
 import { useVendorSelection } from '@/hooks/useVendors';
@@ -29,6 +32,10 @@ export default function PartList() {
   const [stockMap, setStockMap] = useState({});
   const [warehouseNames, setWarehouseNames] = useState([]);
   const [lastStockUpdate, setLastStockUpdate] = useState(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const duplicateGroups = useMemo(() => findMasterDuplicates(masterItems), [masterItems]);
+  const extraRecords = duplicateGroups.reduce((n, g) => n + g.length - 1, 0);
+  const reloadMaster = () => fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
 
   useEffect(() => {
     if (selectedVendor) {
@@ -43,13 +50,7 @@ export default function PartList() {
         if (files.length > 0 && files[0].currency) {
           setFileCurrency(files[0].currency);
         }
-        const masterCodes = new Set();
-        master.forEach(m => {
-          if (m.mediserv_item_code) masterCodes.add(m.mediserv_item_code.trim().toLowerCase());
-          if (m.manufacturer_item_code) masterCodes.add(m.manufacturer_item_code.trim().toLowerCase());
-        });
-        const filteredUnknown = unknown.filter(u => !masterCodes.has((u.item_code || '').trim().toLowerCase()));
-        setUnknownItems(filteredUnknown);
+        setUnknownItems(groupUnknownItems(unknown, master));
       }).catch(err => console.error(err)).finally(() => setLoading(false));
 
       // Fetch latest stock data from analysis
@@ -161,6 +162,18 @@ export default function PartList() {
                 </>
               ) : (
                 <>
+                  {duplicateGroups.length > 0 && (
+                    <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl border border-warning/30 bg-warning/5">
+                      <Copy className="w-4 h-4 text-warning shrink-0" />
+                      <p className="text-sm">
+                        <span className="font-semibold">{duplicateGroups.length} parts are recorded more than once</span>
+                        <span className="text-muted-foreground"> ({extraRecords} extra records)</span>
+                      </p>
+                      <Button size="sm" variant="outline" className="sm:ml-auto" onClick={() => setMergeOpen(true)}>
+                        Review &amp; merge
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex justify-end mb-3">
                     <Button size="sm" onClick={() => setAddPartOpen(true)}>
                       <Plus className="w-4 h-4 mr-1" /> Add Part
@@ -197,14 +210,20 @@ export default function PartList() {
         )
       )}
 
+      <MergeDuplicatesDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        groups={duplicateGroups}
+        currency={getCurrencySymbol(fileCurrency)}
+        onMerged={reloadMaster}
+      />
+
       <MasterItemDialog
         open={addPartOpen}
         onOpenChange={setAddPartOpen}
         vendorId={selectedVendor}
         currency={fileCurrency}
-        onSaved={() => {
-          fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
-        }}
+        onSaved={reloadMaster}
       />
     </div>
   );

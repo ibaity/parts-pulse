@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
+import { normalizeCode } from '@/lib/analysisUtils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -94,57 +95,67 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       });
 
       const existingItems = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
-      const normalize = (s) => (s || '').toLowerCase().trim();
+      // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123").
       const lookup = new Map();
-      existingItems.forEach(item => {
-        if (item.mediserv_item_code) lookup.set(normalize(item.mediserv_item_code), item);
-        if (item.manufacturer_item_code) lookup.set(normalize(item.manufacturer_item_code), item);
-      });
+      const remember = (item, ...codes) => codes.forEach(c => { const k = normalizeCode(c); if (k && !lookup.has(k)) lookup.set(k, item); });
+      existingItems.forEach(item => remember(item, item.mediserv_item_code, item.manufacturer_item_code));
 
       const toCreate = [];
-      const toUpdate = [];
+      const updates = new Map(); // existing id -> merged record (one update per part even if the file repeats it)
       let mergedCount = 0;
       let newCount = 0;
+      const fill = (target, field, value) => {
+        const empty = target[field] === undefined || target[field] === null || target[field] === '' || target[field] === 0;
+        if (empty && value !== '' && value !== 0) target[field] = value;
+      };
 
       rows.forEach(row => {
-        const mediservCode = mapping.mediserv_item_code ? String(row[mapping.mediserv_item_code] ?? '') : '';
-        const manufacturerCode = mapping.manufacturer_item_code ? String(row[mapping.manufacturer_item_code] ?? '') : '';
-        const desc = mapping.description ? String(row[mapping.description] ?? '') : '';
-        const minStock = mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0;
-        const price = mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0;
-        const category = mapping.category ? String(row[mapping.category] ?? '') : '';
-        const unit = mapping.unit ? String(row[mapping.unit] ?? '') : '';
+        const mediservCode = mapping.mediserv_item_code ? String(row[mapping.mediserv_item_code] ?? '').trim() : '';
+        const manufacturerCode = mapping.manufacturer_item_code ? String(row[mapping.manufacturer_item_code] ?? '').trim() : '';
+        const values = {
+          mediserv_item_code: mediservCode,
+          manufacturer_item_code: manufacturerCode,
+          description: mapping.description ? String(row[mapping.description] ?? '') : '',
+          minimum_stock: mapping.minimum_stock ? Number(row[mapping.minimum_stock]) || 0 : 0,
+          unit_price: mapping.unit_price ? Number(row[mapping.unit_price]) || 0 : 0,
+          category: mapping.category ? String(row[mapping.category] ?? '') : '',
+          unit: mapping.unit ? String(row[mapping.unit] ?? '') : '',
+        };
+        if (!normalizeCode(mediservCode) && !normalizeCode(manufacturerCode)) return;
 
-        const existing = (mediservCode && lookup.get(normalize(mediservCode))) || (manufacturerCode && lookup.get(normalize(manufacturerCode)));
+        const existing = lookup.get(normalizeCode(mediservCode)) || lookup.get(normalizeCode(manufacturerCode));
 
-        if (existing) {
-          toUpdate.push({
-            id: existing.id,
-            master_file_id: masterFile.id,
-            mediserv_item_code: existing.mediserv_item_code || mediservCode,
-            manufacturer_item_code: existing.manufacturer_item_code || manufacturerCode,
-            description: existing.description || desc,
-            minimum_stock: existing.minimum_stock || minStock,
-            unit_price: existing.unit_price || price,
-            category: existing.category || category,
-            unit: existing.unit || unit,
-          });
+        if (existing?.__new) {
+          // Same part repeated inside this file: complete the queued row instead of creating it twice.
+          Object.entries(values).forEach(([f, v]) => fill(existing, f, v));
+          remember(existing, mediservCode, manufacturerCode);
+          mergedCount++;
+        } else if (existing) {
+          if (!updates.has(existing.id)) {
+            updates.set(existing.id, {
+              id: existing.id,
+              master_file_id: masterFile.id,
+              mediserv_item_code: existing.mediserv_item_code || '',
+              manufacturer_item_code: existing.manufacturer_item_code || '',
+              description: existing.description || '',
+              minimum_stock: existing.minimum_stock || 0,
+              unit_price: existing.unit_price || 0,
+              category: existing.category || '',
+              unit: existing.unit || '',
+            });
+          }
+          const update = updates.get(existing.id);
+          Object.entries(values).forEach(([f, v]) => fill(update, f, v));
           mergedCount++;
         } else {
-          toCreate.push({
-            master_file_id: masterFile.id,
-            vendor_id: vendorId,
-            mediserv_item_code: mediservCode,
-            manufacturer_item_code: manufacturerCode,
-            description: desc,
-            minimum_stock: minStock,
-            unit_price: price,
-            category,
-            unit,
-          });
+          const record = { __new: true, master_file_id: masterFile.id, vendor_id: vendorId, ...values };
+          toCreate.push(record);
+          remember(record, mediservCode, manufacturerCode);
           newCount++;
         }
       });
+      const toUpdate = [...updates.values()];
+      toCreate.forEach(r => { delete r.__new; });
 
       for (let i = 0; i < toCreate.length; i += CHUNK_SIZE) {
         await base44.entities.MasterItem.bulkCreate(toCreate.slice(i, i + CHUNK_SIZE));

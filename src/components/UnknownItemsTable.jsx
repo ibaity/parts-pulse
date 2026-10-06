@@ -57,6 +57,9 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
     }));
   };
 
+  // An unknown code can be saved once per report; act on every copy of it.
+  const copyIds = (item) => item?.duplicateIds?.length ? item.duplicateIds : [item.id];
+
   const getValue = (item, field) => {
     if (edits[item.id] && edits[item.id][field] !== undefined) {
       return edits[item.id][field];
@@ -82,7 +85,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
         category: edit.category || '',
         unit: edit.unit || '',
       });
-      await base44.entities.AnalysisItem.update(itemId, { matched_via: 'mediserv_code' });
+      await Promise.all(copyIds(item).map(id => base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' })));
       toast({ title: 'Saved', description: 'Item added to master list' });
       setEdits(prev => { const c = { ...prev }; delete c[itemId]; return c; });
       onSaved(itemId);
@@ -96,7 +99,7 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await base44.entities.AnalysisItem.delete(deleteTarget.id);
+      await Promise.all(copyIds(deleteTarget).map(id => base44.entities.AnalysisItem.delete(id)));
       toast({ title: 'Deleted', description: 'Unknown item removed' });
       setEdits(prev => { const c = { ...prev }; delete c[deleteTarget.id]; return c; });
       onDeleted?.(deleteTarget.id);
@@ -127,7 +130,8 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
         };
       });
       await base44.entities.MasterItem.bulkCreate(records);
-      await Promise.all(ids.map(id => base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' })));
+      const allCopies = ids.flatMap(id => copyIds(items.find(i => i.id === id)));
+      await Promise.all(allCopies.map(id => base44.entities.AnalysisItem.update(id, { matched_via: 'mediserv_code' })));
       ids.forEach(id => onSaved(id));
       toast({ title: 'Saved', description: `${ids.length} item(s) added to master list` });
       setEdits({});
@@ -218,7 +222,14 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
           <tbody>
             {sorted.map(item => (
               <tr key={item.id} className="border-b transition-colors hover:bg-muted/40">
-                {visibleCols.item_code && <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.item_code || '-'}</td>}
+                {visibleCols.item_code && (
+                  <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    {item.item_code || '-'}
+                    {item.reportCount > 1 && (
+                      <span className="block font-sans text-[10px] text-info">seen in {item.reportCount} reports</span>
+                    )}
+                  </td>
+                )}
                 {visibleCols.mediserv_item_code && (
                   <td className="p-1">
                     <input
