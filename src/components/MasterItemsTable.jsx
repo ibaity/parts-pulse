@@ -9,6 +9,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
+import { Link } from 'react-router-dom';
+import { findCatalogPart } from '@/lib/catalogLookup';
 import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
@@ -173,6 +175,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
         <table className="w-full text-sm">
           <thead className="bg-muted/70 backdrop-blur-sm sticky top-0 z-10 border-b">
             <tr>
+              <th className="p-2 w-12"></th>
               {visibleCols.mediserv_item_code && <SortHeader label="Mediserv Code" sortKey="mediserv_item_code" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.manufacturer_item_code && <SortHeader label="Manufacturer Code" sortKey="manufacturer_item_code" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.description && <SortHeader label="Description" sortKey="description" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
@@ -194,6 +197,19 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
               const isDirty = !!edits[item.id];
               return (
                 <tr key={item.id} className={`border-b transition-colors ${isDirty ? 'bg-warning/10' : 'hover:bg-muted/40'}`}>
+                  <td className="p-1 w-12">
+                    {(() => {
+                      const part = findCatalogPart(item.manufacturer_item_code, item.mediserv_item_code);
+                      if (!part) return null;
+                      return (
+                        <Link to={`/parts-catalog?q=${encodeURIComponent(part.partNo)}`} title={`${part.name} — open in Parts Catalog`}>
+                          {part.image
+                            ? <img src={`/catalog/img/${part.image}`} alt={part.name} loading="lazy" className="w-10 h-10 object-contain bg-white rounded border" />
+                            : <span className="block w-10 h-10 rounded border bg-muted" />}
+                        </Link>
+                      );
+                    })()}
+                  </td>
                   {visibleCols.mediserv_item_code && (
                     <td className="p-1">
                       <input

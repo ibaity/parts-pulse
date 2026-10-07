@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler } from 'lucide-react';
 import catalog from '@/data/sparePartsCatalog.json';
 import PageHeader from '@/components/PageHeader';
@@ -111,8 +112,12 @@ function PartDialog({ part, onClose }) {
 }
 
 export default function PartsCatalog() {
-  const [group, setGroup] = useState(catalog[0].id);
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialQ = searchParams.get('q') || '';
+  const [group, setGroup] = useState(
+    (catalog.find(g => initialQ && g.items.some(i => i.partNo === initialQ)) || catalog[0]).id
+  );
+  const [search, setSearch] = useState(initialQ);
   const [section, setSection] = useState(ALL);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [selected, setSelected] = useState(null);
