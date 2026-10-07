@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, ListChecks, Monitor,
-  ClipboardList, TrendingDown, Menu, X, ChevronDown, Settings,
+  ClipboardList, TrendingDown, BookOpen, Menu, X, ChevronDown, Settings,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +19,7 @@ const mainNav = [
   { path: '/part-list', label: 'Part List', icon: ListChecks },
   { path: '/inventory-tracking', label: 'Stock Tracking', icon: ClipboardList },
   { path: '/device-models', label: 'Device Models', icon: Monitor },
+  { path: '/parts-catalog', label: 'Parts Catalog', icon: BookOpen },
 ];
 
 const setupNav = [
