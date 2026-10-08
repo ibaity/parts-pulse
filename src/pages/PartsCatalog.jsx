@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler } from 'lucide-react';
+import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler, Warehouse, Loader2 } from 'lucide-react';
 import catalog from '@/data/sparePartsCatalog.json';
 import PageHeader from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { fuzzyMatch } from '@/lib/partConstants';
+import { useCatalogStock } from '@/hooks/useCatalogStock';
+import { findCatalogPart } from '@/lib/catalogLookup';
 
 const PAGE_SIZE = 48;
 const ALL = '__all__';
@@ -62,6 +64,53 @@ function Field({ label, children }) {
   );
 }
 
+function StockPanel({ part }) {
+  const { lookup, isLoading, error, lastUpdate } = useCatalogStock(!!part.partNo);
+  if (!part.partNo) return null;
+  const stock = lookup(part.partNo);
+
+  let body;
+  if (isLoading) {
+    body = <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" />Loading stock…</p>;
+  } else if (error) {
+    body = <p className="text-sm text-critical">Could not load stock.</p>;
+  } else if (!stock?.found || stock.warehouses.length === 0) {
+    body = <p className="text-sm text-muted-foreground">Not in stock in any warehouse (latest stock report).</p>;
+  } else {
+    body = (
+      <div className="space-y-1.5">
+        {stock.warehouses.map(w => (
+          <div
+            key={w.warehouse}
+            className={`flex items-center justify-between gap-3 rounded-md border px-3 py-1.5 text-sm ${w.enabled ? 'bg-card' : 'bg-muted text-muted-foreground'}`}
+            title={w.enabled ? 'Counted in stock' : 'Warehouse disabled — not counted'}
+          >
+            <span className="min-w-0 truncate">
+              {w.warehouse}{w.name && <span className="text-muted-foreground"> · {w.name}</span>}
+            </span>
+            <span className="font-semibold tabular-nums">{w.quantity}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm font-semibold"><Warehouse className="w-4 h-4" />Stock on hand</p>
+        {stock?.found && <Badge variant={stock.total > 0 ? 'default' : 'destructive'}>{stock.total} total</Badge>}
+      </div>
+      {body}
+      {lastUpdate && (
+        <p className="text-[11px] text-muted-foreground">
+          Latest stock report: {new Date(lastUpdate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PartDialog({ part, onClose }) {
   const { toast } = useToast();
   const copy = async () => {
@@ -92,6 +141,7 @@ function PartDialog({ part, onClose }) {
                     </Button>
                   )}
                 </div>
+                <StockPanel part={part} />
                 <Field label="Models">{part.models}</Field>
                 <Field label="Supplier No.">{part.supplierNo}</Field>
                 {part.weight && <Field label="Weight"><span className="inline-flex items-center gap-1"><Weight className="w-3.5 h-3.5" />{part.weight} kg</span></Field>}
@@ -120,7 +170,9 @@ export default function PartsCatalog() {
   const [search, setSearch] = useState(initialQ);
   const [section, setSection] = useState(ALL);
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(
+    () => (initialQ && findCatalogPart(initialQ)) || null
+  );
 
   const current = catalog.find(g => g.id === group);
   const sections = useMemo(() => [...new Set(current.items.map(i => i.section))].sort(), [current]);
