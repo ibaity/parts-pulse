@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
-import { catalogCodeKey } from '@/lib/analysisUtils';
+import { catalogCodeKey, catalogCodesInText } from '@/lib/analysisUtils';
 
-const ITEM_FIELDS = ['item_code', 'current_stock', 'warehouse_breakdown'];
-const MASTER_FIELDS = ['mediserv_item_code', 'manufacturer_item_code'];
+const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'warehouse_breakdown'];
+const MASTER_FIELDS = ['mediserv_item_code', 'manufacturer_item_code', 'description'];
 
 const addAlias = (map, from, to) => {
   if (!from || !to || from === to) return;
@@ -14,7 +14,8 @@ const addAlias = (map, from, to) => {
 };
 
 // Current stock picture: the latest completed analysis of every vendor, indexed by item code.
-// Master items link manufacturer codes (used by the catalog) to Mediserv codes (often used in reports).
+// Master items link manufacturer codes (used by the catalog) to Mediserv codes (often used in reports);
+// part numbers written in descriptions ("D IMMU 0065160 …") are linked too.
 async function loadStockIndex() {
   const runs = await base44.entities.AnalysisRun.filter({ status: 'completed' }, '-created_date', 200);
   const latestByVendor = new Map();
@@ -27,11 +28,16 @@ async function loadStockIndex() {
   ]);
 
   const byCode = new Map();
-  itemLists.flat().forEach(item => {
-    const key = catalogCodeKey(item.item_code);
+  const index = (key, item) => {
     if (!key) return;
     if (!byCode.has(key)) byCode.set(key, []);
     byCode.get(key).push(item);
+  };
+  itemLists.flat().forEach(item => {
+    const own = catalogCodeKey(item.item_code);
+    index(own, item);
+    catalogCodesInText(item.description).forEach(k => k !== own && index(k, item));
+    catalogCodesInText(item.item_code).forEach(k => k !== own && index(k, item));
   });
 
   const aliases = new Map();
@@ -40,6 +46,10 @@ async function loadStockIndex() {
     const f = catalogCodeKey(mi.manufacturer_item_code);
     addAlias(aliases, m, f);
     addAlias(aliases, f, m);
+    for (const d of catalogCodesInText(mi.description)) {
+      addAlias(aliases, d, m);
+      addAlias(aliases, d, f);
+    }
   }
 
   const lastUpdate = latestRuns.reduce((max, r) => (!max || r.created_date > max ? r.created_date : max), null);

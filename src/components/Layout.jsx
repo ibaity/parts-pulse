@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, FileSpreadsheet, FlaskConical, Warehouse as WarehouseIcon, ListChecks, Monitor,
-  ClipboardList, TrendingDown, BookOpen, Menu, X, ChevronDown, Settings,
+  TrendingDown, BookOpen, Menu, X, ChevronDown, Settings,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,23 +12,32 @@ import { VendorProvider, useVendorSelection } from '@/hooks/useVendors';
 
 export const APP_NAME = 'Part Plus';
 
-const mainNav = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+// Related pages share one menu entry and switch with tabs at the top of the page.
+const stockTabs = [
   { path: '/analysis', label: 'Analysis', icon: FlaskConical },
   { path: '/consumption', label: 'Consumption', icon: TrendingDown },
+];
+const partsTabs = [
   { path: '/part-list', label: 'Part List', icon: ListChecks },
-  { path: '/inventory-tracking', label: 'Stock Tracking', icon: ClipboardList },
-  { path: '/device-models', label: 'Device Models', icon: Monitor },
   { path: '/parts-catalog', label: 'Parts Catalog', icon: BookOpen },
+];
+
+const mainNav = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/analysis', label: 'Stock', icon: FlaskConical, tabs: stockTabs },
+  { path: '/part-list', label: 'Parts', icon: ListChecks, tabs: partsTabs },
 ];
 
 const setupNav = [
   { path: '/vendors', label: 'Vendors', icon: Building2 },
   { path: '/warehouses', label: 'Warehouses', icon: WarehouseIcon },
   { path: '/master-files', label: 'Master Files', icon: FileSpreadsheet },
+  { path: '/device-models', label: 'Device Models', icon: Monitor },
 ];
 
-const allNavItems = [...mainNav, ...setupNav];
+const isActive = (item, pathname) => item.tabs ? item.tabs.some(t => t.path === pathname) : item.path === pathname;
+
+const allNavItems = [...mainNav.flatMap(i => i.tabs || [i]), ...setupNav];
 
 function Brand() {
   return (
@@ -83,11 +92,35 @@ function NavLink({ item, active, onClick, block = false }) {
   );
 }
 
+function SectionTabs({ tabs, pathname }) {
+  return (
+    <div className="px-4 lg:px-6 pt-4">
+      <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1 border overflow-x-auto max-w-full">
+        {tabs.map(tab => {
+          const active = tab.path === pathname;
+          return (
+            <Link
+              key={tab.path}
+              to={tab.path}
+              className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />{tab.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Shell() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const currentPage = allNavItems.find(i => i.path === location.pathname);
   const inSetup = setupNav.some(i => i.path === location.pathname);
+  const section = mainNav.find(i => i.tabs && isActive(i, location.pathname));
 
   // Browser tab shows the current page name.
   useEffect(() => {
@@ -106,7 +139,7 @@ function Shell() {
           <Brand />
 
           <nav className="hidden lg:flex items-center gap-0.5 min-w-0">
-            {mainNav.map(item => <NavLink key={item.path} item={item} active={location.pathname === item.path} />)}
+            {mainNav.map(item => <NavLink key={item.path} item={item} active={isActive(item, location.pathname)} />)}
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium outline-none ${
@@ -133,7 +166,7 @@ function Shell() {
         {/* Mobile / tablet menu */}
         {menuOpen && (
           <nav className="lg:hidden border-t border-sidebar-border px-3 py-3 space-y-0.5 max-h-[70vh] overflow-y-auto">
-            {mainNav.map(item => <NavLink key={item.path} block item={item} active={location.pathname === item.path} />)}
+            {mainNav.map(item => <NavLink key={item.path} block item={item} active={isActive(item, location.pathname)} />)}
             <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">Setup</p>
             {setupNav.map(item => <NavLink key={item.path} block item={item} active={location.pathname === item.path} />)}
           </nav>
@@ -142,6 +175,7 @@ function Shell() {
 
       <main className="flex-1 overflow-auto flex flex-col">
         <div className="flex-1 w-full max-w-[1440px] mx-auto">
+          {section && <SectionTabs tabs={section.tabs} pathname={location.pathname} />}
           <Outlet />
         </div>
         <footer className="border-t px-4 py-5 text-center">
