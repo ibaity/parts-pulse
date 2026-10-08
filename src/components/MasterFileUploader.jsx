@@ -5,10 +5,11 @@ import { fetchAll } from '@/lib/fetchAll';
 import { normalizeCode } from '@/lib/analysisUtils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Upload, FileSpreadsheet } from 'lucide-react';
-import { CURRENCIES } from '@/lib/partConstants';
+import { CURRENCIES, DEFAULT_SAR_RATES } from '@/lib/partConstants';
 
 const REQUIRED_FIELDS = [
   { key: 'mediserv_item_code', label: 'Mediserv Item Code' },
@@ -32,6 +33,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
   const [fileName, setFileName] = useState('');
   const [mapping, setMapping] = useState({});
   const [currency, setCurrency] = useState('SAR');
+  const [sarRate, setSarRate] = useState('');
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -90,6 +92,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         file_url,
         file_name: fileName,
         currency,
+        ...(currency !== 'SAR' && Number(sarRate) > 0 ? { sar_rate: Number(sarRate) } : {}),
         column_mapping: mapping,
         item_count: rows.length,
       });
@@ -225,7 +228,7 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       <Card className="p-4">
         <h4 className="text-sm font-semibold mb-1">Approved Currency</h4>
         <p className="text-xs text-muted-foreground mb-3">Select the currency used for all prices in this list.</p>
-        <Select value={currency} onValueChange={setCurrency}>
+        <Select value={currency} onValueChange={(c) => { setCurrency(c); setSarRate(DEFAULT_SAR_RATES[c] ? String(DEFAULT_SAR_RATES[c]) : ''); }}>
           <SelectTrigger className="h-9 w-full max-w-xs">
             <SelectValue />
           </SelectTrigger>
@@ -235,6 +238,13 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
             ))}
           </SelectContent>
         </Select>
+        {currency !== 'SAR' && (
+          <div className="mt-3 flex items-center gap-2 text-sm max-w-xs">
+            <span className="shrink-0">1 {currency} =</span>
+            <Input type="number" step="0.0001" min="0" placeholder="Rate" className="h-9" value={sarRate} onChange={e => setSarRate(e.target.value)} />
+            <span className="shrink-0">SAR</span>
+          </div>
+        )}
       </Card>
 
       <Card className="p-4">

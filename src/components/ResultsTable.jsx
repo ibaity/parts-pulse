@@ -8,7 +8,8 @@ import {
   Download, PackageX, CheckCircle2, FileSpreadsheet, FileText, ChevronDown, Search, ArrowRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet,
 } from 'lucide-react';
-import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice, formatSar, showsSar } from '@/lib/partConstants';
+import Money from '@/components/Money';
 import { isMissingFromReport } from '@/lib/analysisUtils';
 
 const FILTERS = [
@@ -54,7 +55,7 @@ const TILE_TONES = {
   primary: 'bg-primary/10 text-primary',
 };
 
-function SummaryTile({ icon: Icon, label, value, tone }) {
+function SummaryTile({ icon: Icon, label, value, sub, tone }) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border bg-card">
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${TILE_TONES[tone]}`}>
@@ -63,6 +64,7 @@ function SummaryTile({ icon: Icon, label, value, tone }) {
       <div className="min-w-0">
         <p className="text-[11px] text-muted-foreground">{label}</p>
         <p className="text-base sm:text-lg font-bold tabular-nums leading-tight break-words">{value}</p>
+        {sub && <p className="text-[11px] text-muted-foreground tabular-nums break-words">{sub}</p>}
       </div>
     </div>
   );
@@ -143,7 +145,7 @@ function WarehouseBreakdown({ breakdown }) {
   );
 }
 
-export default function ResultsTable({ results, vendorId, vendorName, currency, manualItems = [] }) {
+export default function ResultsTable({ results, vendorId, vendorName, currency, sarRate, manualItems = [] }) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState({ key: 'status', dir: 'asc' });
@@ -202,14 +204,12 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   // Export libraries are large, so load them only when exporting.
   const handleExport = async (type) => {
     const { exportPurchaseExcel, exportPurchasePDF } = await import('@/lib/exportUtils');
-    if (type === 'excel') exportPurchaseExcel(allPurchaseItems, vendorName, currency);
-    else exportPurchasePDF(allPurchaseItems, vendorName, currency);
+    if (type === 'excel') exportPurchaseExcel(allPurchaseItems, vendorName, currency, sarRate);
+    else exportPurchasePDF(allPurchaseItems, vendorName, currency, sarRate);
   };
 
-  const formatMoney = (val) => {
-    const n = Number(val) || 0;
-    return n > 0 ? `${symbol} ${formatPrice(n)}` : '-';
-  };
+  const withSar = showsSar(currency, sarRate);
+  const totalText = `${symbol} ${formatPrice(grandTotal)}`;
 
   if (purchaseItems.length === 0 && unknownItems.length === 0) {
     return (
@@ -227,7 +227,13 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
         <SummaryTile icon={ShoppingCart} label="To purchase" value={counts.all} tone="warning" />
         <SummaryTile icon={AlertTriangle} label="Critical (zero stock)" value={counts.critical} tone="critical" />
         <SummaryTile icon={EyeOff} label="Not in report" value={counts.missing} tone="info" />
-        <SummaryTile icon={Wallet} label="Estimated cost" value={grandTotal > 0 ? `${symbol} ${formatPrice(grandTotal)}` : '-'} tone="primary" />
+        <SummaryTile
+          icon={Wallet}
+          label="Estimated cost"
+          value={grandTotal <= 0 ? '-' : <bdi>{withSar ? formatSar(grandTotal, sarRate) : totalText}</bdi>}
+          sub={grandTotal > 0 && withSar ? <bdi>{totalText}</bdi> : null}
+          tone="primary"
+        />
       </div>
 
       {purchaseItems.length > 0 && (
@@ -299,9 +305,10 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       <StockLevel compact current={Number(r.current_stock) || 0} min={Number(r.minimum_stock) || 0} />
                     </div>
                     {lineTotal(r) > 0 && (
-                      <p className="mt-2 text-xs text-muted-foreground text-right">
-                        <bdi>{formatMoney(r.unit_price)}</bdi> each · <bdi className="font-semibold text-foreground">{formatMoney(lineTotal(r))}</bdi>
-                      </p>
+                      <div className="mt-2 flex items-start justify-end gap-1.5 text-xs text-muted-foreground">
+                        <Money value={r.unit_price} currency={currency} sarRate={sarRate} /> <span>each ·</span>
+                        <Money value={lineTotal(r)} currency={currency} sarRate={sarRate} className="font-semibold text-foreground" />
+                      </div>
                     )}
                   </button>
                   {isOpen && <div className="mt-3"><WarehouseBreakdown breakdown={r.warehouse_breakdown} /></div>}
@@ -359,8 +366,8 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                             {r.recommended_quantity}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums hidden lg:table-cell">{formatMoney(r.unit_price)}</td>
-                        <td className="px-4 py-3.5 text-right font-semibold tabular-nums">{formatMoney(lineTotal(r))}</td>
+                        <td className="px-4 py-3.5 text-right tabular-nums hidden lg:table-cell"><Money value={r.unit_price} currency={currency} sarRate={sarRate} /></td>
+                        <td className="px-4 py-3.5 text-right font-semibold tabular-nums"><Money value={lineTotal(r)} currency={currency} sarRate={sarRate} /></td>
                         <td className="px-4 py-3.5 text-center"><StatusPill r={r} /></td>
                         <td className="pr-4 text-muted-foreground">
                           <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -384,7 +391,12 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
 
           <div className="px-4 py-3 border-t bg-muted/30 rounded-b-xl flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Showing {visibleItems.length} of {purchaseItems.length} items{normalizedManual.length > 0 && ` · ${normalizedManual.length} manual items included in export`}</span>
-            {grandTotal > 0 && <span className="text-sm font-semibold text-foreground">Total: {symbol} {formatPrice(grandTotal)}</span>}
+            {grandTotal > 0 && (
+              <span className="text-sm font-semibold text-foreground">
+                Total: <bdi>{totalText}</bdi>
+                {withSar && <span className="ml-2 text-xs font-normal text-muted-foreground">≈ <bdi>{formatSar(grandTotal, sarRate)}</bdi></span>}
+              </span>
+            )}
           </div>
         </Card>
       )}

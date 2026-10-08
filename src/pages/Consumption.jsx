@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useVendorSelection } from '@/hooks/useVendors';
 import { fetchAll } from '@/lib/fetchAll';
 import { computePeriods, allocateByMonth, yearsWithData } from '@/lib/consumptionFromRuns';
-import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
+import { getCurrencySymbol, formatPrice, getSarRate, showsSar, formatSar } from '@/lib/partConstants';
 import { TrendingDown, Wallet, CalendarRange, Package, Info, X, HardHat, Warehouse as WarehouseIcon } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import VendorNotice from '@/components/VendorNotice';
@@ -33,7 +33,8 @@ function useRunIndex(vendorId) {
       ]);
       const sorted = [...runs].sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
       const pairs = sorted.slice(1).map((r, i) => ({ from: new Date(sorted[i].created_date).getTime(), to: new Date(r.created_date).getTime() }));
-      return { runs: sorted, years: yearsWithData(pairs), currency: files[0]?.currency || 'SAR' };
+      const currency = files[0]?.currency || 'SAR';
+      return { runs: sorted, years: yearsWithData(pairs), currency, sarRate: getSarRate(currency, files[0]?.sar_rate) };
     },
   });
 }
@@ -117,8 +118,15 @@ export default function Consumption() {
 
   const yearData = useYearConsumption(selectedVendor, runIndex.data, year);
   const data = yearData.data;
-  const symbol = getCurrencySymbol(runIndex.data?.currency);
+  const currency = runIndex.data?.currency;
+  const sarRate = runIndex.data?.sarRate;
+  const symbol = getCurrencySymbol(currency);
   const money = (n) => `${symbol} ${formatPrice(n)}`;
+  // Counters lead with SAR when the price list is in another currency; the original amount goes underneath.
+  const withSar = showsSar(currency, sarRate);
+  const kpiMoney = (n) => (withSar ? formatSar(n, sarRate) : money(n));
+  const kpiSub = (n, text) => (withSar ? `${money(n)} · ${text}` : text);
+  const sarNote = (n) => (withSar ? ` (≈ ${formatSar(n, sarRate)})` : '');
   const units = (n) => Math.round(n || 0).toLocaleString('en-US');
 
   const chartData = useMemo(() => (data?.months || []).map(m => ({
@@ -179,14 +187,14 @@ export default function Consumption() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={Wallet} label={`Total consumed in ${year}`} value={money(data.totalValue)} sub={`${data.coveredMonths} of 12 months with data`} />
-            <Kpi icon={TrendingDown} label="Average per month" value={money(data.monthlyAverage)} sub="months with report data" />
+            <Kpi icon={Wallet} label={`Total consumed in ${year}`} value={<bdi>{kpiMoney(data.totalValue)}</bdi>} sub={kpiSub(data.totalValue, `${data.coveredMonths} of 12 months with data`)} />
+            <Kpi icon={TrendingDown} label="Average per month" value={<bdi>{kpiMoney(data.monthlyAverage)}</bdi>} sub={kpiSub(data.monthlyAverage, 'months with report data')} />
             <Kpi icon={Package} label="Units consumed" value={units(data.totalQty)} sub={`${data.yearParts.length} different parts`} />
             <Kpi
               icon={CalendarRange}
               label="Highest month"
               value={maxMonthValue > 0 ? MONTHS_LONG[data.months.findIndex(m => m.value === maxMonthValue)] : '-'}
-              sub={maxMonthValue > 0 ? money(maxMonthValue) : undefined}
+              sub={maxMonthValue > 0 ? kpiMoney(maxMonthValue) : undefined}
             />
           </div>
 
@@ -217,7 +225,7 @@ export default function Consumption() {
                         <p className="font-semibold">{MONTHS_LONG[m.month]} {year}</p>
                         {m.hasData ? (
                           <>
-                            <p>Consumed: <span className="font-semibold">{money(m.value)}</span></p>
+                            <p>Consumed: <span className="font-semibold">{money(m.value)}</span>{sarNote(m.value)}</p>
                             <p className="text-muted-foreground">{units(m.qty)} units</p>
                             {Math.round(m.coveredDays) < m.daysInMonth && (
                               <p className="text-muted-foreground">Data covers {Math.round(m.coveredDays)} of {m.daysInMonth} days</p>
@@ -302,7 +310,7 @@ export default function Consumption() {
                       content={<ChartTooltip render={(w) => (
                         <>
                           <p className="font-semibold"><span className="font-mono">{w.name}</span>{w.label && ` · ${w.label}`}</p>
-                          <p>Consumed: <span className="font-semibold">{money(w.value)}</span></p>
+                          <p>Consumed: <span className="font-semibold">{money(w.value)}</span>{sarNote(w.value)}</p>
                           <p className="text-muted-foreground">{units(w.qty)} units · {w.partRows.length} parts</p>
                         </>
                       )} />}
@@ -354,7 +362,7 @@ export default function Consumption() {
                           <>
                             <p className="font-semibold font-mono">{p.code}</p>
                             {p.description && <p className="text-muted-foreground max-w-[220px]">{p.description}</p>}
-                            <p>Consumed: <span className="font-semibold">{money(p.value)}</span></p>
+                            <p>Consumed: <span className="font-semibold">{money(p.value)}</span>{sarNote(p.value)}</p>
                             <p className="text-muted-foreground">{units(p.qty)} units × {money(p.unit_price)}</p>
                           </>
                         )} />}

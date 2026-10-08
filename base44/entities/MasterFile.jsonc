@@ -20,6 +20,10 @@
       "title": "Currency",
       "default": "SAR"
     },
+    "sar_rate": {
+      "type": "number",
+      "title": "SAR per 1 unit of currency"
+    },
     "column_mapping": {
       "type": "object",
       "title": "Column Mapping"

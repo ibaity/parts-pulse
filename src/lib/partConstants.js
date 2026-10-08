@@ -27,6 +27,27 @@ export function formatPrice(value) {
 
 export const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
+// SAR per 1 unit of a currency. USD and AED are pegged; others must be entered per price list.
+export const DEFAULT_SAR_RATES = { SAR: 1, USD: 3.75, AED: 1.021 };
+
+// Rate used to show SAR equivalents: 1 for SAR, else the price list's saved rate, else the peg. null = unknown.
+export function getSarRate(currency, storedRate) {
+  if (!currency || currency === 'SAR') return 1;
+  const stored = Number(storedRate);
+  if (stored > 0) return stored;
+  return DEFAULT_SAR_RATES[currency] ?? null;
+}
+
+// True when prices are in another currency and can be shown in SAR too.
+export const showsSar = (currency, rate) => !!currency && currency !== 'SAR' && Number(rate) > 0;
+
+export const toSar = (value, rate) => (Number(rate) > 0 ? round2((Number(value) || 0) * rate) : null);
+
+export function formatSar(value, rate) {
+  const sar = toSar(value, rate);
+  return sar === null ? '' : `${getCurrencySymbol('SAR')} ${formatPrice(sar)}`;
+}
+
 export function fuzzyMatch(query, target) {
   if (!query) return true;
   if (!target) return false;

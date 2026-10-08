@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
+import Money from '@/components/Money';
 
 const normalizeCode = (s) => (s || '').toLowerCase().trim();
 
-export default function ManualOrderPanel({ vendorId, currency, items, onAdded, onDeleted, onUpdated }) {
+export default function ManualOrderPanel({ vendorId, currency, sarRate, items, onAdded, onDeleted, onUpdated }) {
   const [masterItems, setMasterItems] = useState([]);
   const [quickCode, setQuickCode] = useState('');
   const [quickQty, setQuickQty] = useState('1');
@@ -225,8 +226,8 @@ export default function ManualOrderPanel({ vendorId, currency, items, onAdded, o
                         onChange={e => handleUpdateQty(item.id, e.target.value)}
                       />
                     </td>
-                    <td className="p-2 text-right text-xs">{symbol} {formatPrice(item.unit_price)}</td>
-                    <td className="p-2 text-right text-xs font-medium">{symbol} {formatPrice((Number(item.unit_price) || 0) * (item.quantity || 0))}</td>
+                    <td className="p-2 text-right text-xs"><Money value={item.unit_price} currency={currency} sarRate={sarRate} emptyText={`${symbol} ${formatPrice(0)}`} /></td>
+                    <td className="p-2 text-right text-xs font-medium"><Money value={(Number(item.unit_price) || 0) * (item.quantity || 0)} currency={currency} sarRate={sarRate} emptyText={`${symbol} ${formatPrice(0)}`} /></td>
                     <td className="p-2 text-center">
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="w-3.5 h-3.5" />

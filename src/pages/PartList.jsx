@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { PackageSearch, AlertCircle, Plus, Clock, Copy, Tag } from 'lucide-react';
 import PriceUpdateDialog from '@/components/PriceUpdateDialog';
 import MergeDuplicatesDialog from '@/components/MergeDuplicatesDialog';
-import { getCurrencySymbol } from '@/lib/partConstants';
+import { getCurrencySymbol, getSarRate } from '@/lib/partConstants';
+import ExchangeRateButton from '@/components/ExchangeRateButton';
 import PageHeader from '@/components/PageHeader';
 import VendorNotice from '@/components/VendorNotice';
 import { useVendorSelection } from '@/hooks/useVendors';
@@ -27,6 +28,7 @@ export default function PartList() {
   const [masterItems, setMasterItems] = useState([]);
   const [unknownItems, setUnknownItems] = useState([]);
   const [fileCurrency, setFileCurrency] = useState('SAR');
+  const [latestFile, setLatestFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
   const [addPartOpen, setAddPartOpen] = useState(false);
@@ -37,6 +39,7 @@ export default function PartList() {
   const [priceOpen, setPriceOpen] = useState(false);
   const { groups: duplicateGroups, suspicious: suspiciousGroups } = useMemo(() => findMasterDuplicates(masterItems), [masterItems]);
   const extraRecords = duplicateGroups.reduce((n, g) => n + g.length - 1, 0);
+  const sarRate = getSarRate(fileCurrency, latestFile?.sar_rate);
   const reloadMaster = () => fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor }).then(setMasterItems);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function PartList() {
         base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100),
       ]).then(([master, unknown, files]) => {
         setMasterItems(master);
+        setLatestFile(files[0] || null);
         if (files.length > 0 && files[0].currency) {
           setFileCurrency(files[0].currency);
         }
@@ -179,7 +183,12 @@ export default function PartList() {
                       </Button>
                     </div>
                   )}
-                  <div className="flex justify-end gap-2 mb-3">
+                  <div className="flex flex-wrap justify-end gap-2 mb-3">
+                    <ExchangeRateButton
+                      masterFile={latestFile}
+                      rate={sarRate}
+                      onSaved={(rate) => setLatestFile(prev => ({ ...prev, sar_rate: rate }))}
+                    />
                     <Button size="sm" variant="outline" onClick={() => setPriceOpen(true)}>
                       <Tag className="w-4 h-4 mr-1" /> Update prices
                     </Button>
@@ -193,6 +202,7 @@ export default function PartList() {
                     <MasterItemsTable
                       items={masterItems}
                       currency={fileCurrency}
+                      sarRate={sarRate}
                       stockMap={stockMap}
                       warehouseNames={warehouseNames}
                       onDeleted={(id) => setMasterItems(prev => prev.filter(i => i.id !== id))}
