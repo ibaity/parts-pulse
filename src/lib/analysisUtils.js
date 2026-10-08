@@ -13,6 +13,18 @@ export function catalogCodeKey(code) {
   return normalizeCode(code).replace(/^dimmu(?:cor)?(?=\d)/, '').replace(/^0+(?=.)/, '');
 }
 
+// Part numbers written inside a name/description, e.g. "D IMMU 0065160 Wash Station Pump" -> 65160.
+// Picks the code after a "D IMMU" prefix plus any standalone 7–8 digit number (Immucor part / supplier no.).
+export function catalogCodesInText(text) {
+  const raw = (text || '').toString();
+  const keys = new Set();
+  const prefixed = raw.match(/^\s*d[\s\-_.]*immu(?:cor)?[\s\-_.:#]*([a-z0-9][a-z0-9\-_.]*)/i);
+  if (prefixed) keys.add(catalogCodeKey(prefixed[1]));
+  for (const n of raw.match(/(?<![\w-])\d{7,8}(?![\w-])/g) || []) keys.add(catalogCodeKey(n));
+  keys.delete('');
+  return [...keys];
+}
+
 // Engineer stock locations are warehouse codes starting with "E" + digits, e.g. "E101" or "E101 - Ahmed Ali".
 const ENGINEER_CODE = /^(e\d+)\b[\s\-–:|/]*(.*)$/i;
 
