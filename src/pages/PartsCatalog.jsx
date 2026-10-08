@@ -67,7 +67,7 @@ function Field({ label, children }) {
 function StockPanel({ part }) {
   const { lookup, isLoading, error, lastUpdate } = useCatalogStock(!!part.partNo);
   if (!part.partNo) return null;
-  const stock = lookup(part.partNo);
+  const stock = lookup(part.partNo, part.supplierNo);
 
   let body;
   if (isLoading) {
@@ -102,6 +102,9 @@ function StockPanel({ part }) {
         {stock?.found && <Badge variant={stock.total > 0 ? 'default' : 'destructive'}>{stock.total} total</Badge>}
       </div>
       {body}
+      {stock?.codes?.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">Codes checked: {stock.codes.join(', ')}</p>
+      )}
       {lastUpdate && (
         <p className="text-[11px] text-muted-foreground">
           Latest stock report: {new Date(lastUpdate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}

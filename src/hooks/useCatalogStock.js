@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
-import { normalizeCode } from '@/lib/analysisUtils';
+import { catalogCodeKey } from '@/lib/analysisUtils';
 
 const ITEM_FIELDS = ['item_code', 'current_stock', 'warehouse_breakdown'];
 const MASTER_FIELDS = ['mediserv_item_code', 'manufacturer_item_code'];
@@ -28,7 +28,7 @@ async function loadStockIndex() {
 
   const byCode = new Map();
   itemLists.flat().forEach(item => {
-    const key = normalizeCode(item.item_code);
+    const key = catalogCodeKey(item.item_code);
     if (!key) return;
     if (!byCode.has(key)) byCode.set(key, []);
     byCode.get(key).push(item);
@@ -36,8 +36,8 @@ async function loadStockIndex() {
 
   const aliases = new Map();
   for (const mi of masters) {
-    const m = normalizeCode(mi.mediserv_item_code);
-    const f = normalizeCode(mi.manufacturer_item_code);
+    const m = catalogCodeKey(mi.mediserv_item_code);
+    const f = catalogCodeKey(mi.manufacturer_item_code);
     addAlias(aliases, m, f);
     addAlias(aliases, f, m);
   }
@@ -55,11 +55,16 @@ export function useCatalogStock(enabled) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const lookup = useCallback((partNo) => {
+  const lookup = useCallback((...codes) => {
     if (!data) return null;
-    const key = normalizeCode(partNo);
-    if (!key) return null;
-    const keys = new Set([key, ...(data.aliases.get(key) || [])]);
+    const keys = new Set();
+    for (const code of codes) {
+      const key = catalogCodeKey(code);
+      if (!key) continue;
+      keys.add(key);
+      (data.aliases.get(key) || []).forEach(a => keys.add(a));
+    }
+    if (keys.size === 0) return null;
     const items = new Set();
     keys.forEach(k => (data.byCode.get(k) || []).forEach(i => items.add(i)));
 
@@ -77,7 +82,7 @@ export function useCatalogStock(enabled) {
     const rows = [...warehouses.values()]
       .filter(w => w.quantity !== 0)
       .sort((a, b) => (b.enabled - a.enabled) || (b.quantity - a.quantity));
-    return { found: items.size > 0, total, warehouses: rows };
+    return { found: items.size > 0, total, warehouses: rows, codes: [...keys] };
   }, [data]);
 
   return { lookup, isLoading, error, lastUpdate: data?.lastUpdate };

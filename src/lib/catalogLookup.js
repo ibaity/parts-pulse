@@ -1,6 +1,5 @@
 import catalog from '@/data/sparePartsCatalog.json';
-
-const norm = (code) => String(code || '').trim().toLowerCase();
+import { catalogCodeKey as norm } from '@/lib/analysisUtils';
 
 // Part number -> first catalog entry that has a photo (falls back to any entry).
 const byPartNo = new Map();

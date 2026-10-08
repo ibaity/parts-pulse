@@ -7,6 +7,11 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
+// Catalog matching key: also ignores leading zeros, which Excel drops from numeric part numbers ("0064730" vs "64730").
+export function catalogCodeKey(code) {
+  return normalizeCode(code).replace(/^0+(?=.)/, '');
+}
+
 // Engineer stock locations are warehouse codes starting with "E" + digits, e.g. "E101" or "E101 - Ahmed Ali".
 const ENGINEER_CODE = /^(e\d+)\b[\s\-–:|/]*(.*)$/i;
 
