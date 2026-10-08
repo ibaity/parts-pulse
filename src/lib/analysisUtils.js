@@ -7,20 +7,20 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
-// Catalog matching key: Immucor parts may be coded "D IMMU 0064730", "D-IMMU-64730" or just "64730",
-// so the "D IMMU" prefix and leading zeros are ignored and all of these link to catalog part 0064730.
+// Catalog matching key: Immucor parts may be coded "D0064730", "D IMMU 0064730", "D-IMMU-64730" or just "64730",
+// so the "D" / "D IMMU" prefix and leading zeros are ignored and all of these link to catalog part 0064730.
 export function catalogCodeKey(code) {
-  return normalizeCode(code).replace(/^dimmu(?:cor)?(?=\d)/, '').replace(/^0+(?=.)/, '');
+  return normalizeCode(code).replace(/^d(?:immu(?:cor)?)?(?=\d)/, '').replace(/^0+(?=.)/, '');
 }
 
 // Part numbers written inside a name/description, e.g. "D IMMU 0065160 Wash Station Pump" -> 65160.
-// Picks the code after a "D IMMU" prefix plus any standalone 7–8 digit number (Immucor part / supplier no.).
+// Picks the code after a "D IMMU" prefix plus any standalone 7–8 digit number, optionally "D"-prefixed.
 export function catalogCodesInText(text) {
   const raw = (text || '').toString();
   const keys = new Set();
   const prefixed = raw.match(/^\s*d[\s\-_.]*immu(?:cor)?[\s\-_.:#]*([a-z0-9][a-z0-9\-_.]*)/i);
   if (prefixed) keys.add(catalogCodeKey(prefixed[1]));
-  for (const n of raw.match(/(?<![\w-])\d{7,8}(?![\w-])/g) || []) keys.add(catalogCodeKey(n));
+  for (const n of raw.match(/(?<![\w-])d?\d{7,8}(?![\w-])/gi) || []) keys.add(catalogCodeKey(n));
   keys.delete('');
   return [...keys];
 }
