@@ -7,6 +7,12 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
+// Catalog matching key: Immucor parts may be coded "D IMMU 0064730", "D-IMMU-64730" or just "64730",
+// so the "D IMMU" prefix and leading zeros are ignored and all of these link to catalog part 0064730.
+export function catalogCodeKey(code) {
+  return normalizeCode(code).replace(/^dimmu(?:cor)?(?=\d)/, '').replace(/^0+(?=.)/, '');
+}
+
 // Engineer stock locations are warehouse codes starting with "E" + digits, e.g. "E101" or "E101 - Ahmed Ali".
 const ENGINEER_CODE = /^(e\d+)\b[\s\-–:|/]*(.*)$/i;
 
