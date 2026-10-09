@@ -10,6 +10,7 @@ import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
 import { Link } from 'react-router-dom';
+import { isEngineerWarehouse } from '@/lib/analysisUtils';
 import { findCatalogPart } from '@/lib/catalogLookup';
 import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch, showsSar, formatSar } from '@/lib/partConstants';
 
@@ -24,6 +25,11 @@ const COLUMN_DEFS = [
 ];
 
 export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency, sarRate, stockMap = {}, warehouseNames = [] }) {
+  // Column order: Total, then main warehouses, then engineer warehouses.
+  const orderedWarehouses = useMemo(
+    () => [...warehouseNames.filter(w => !isEngineerWarehouse(w)), ...warehouseNames.filter(isEngineerWarehouse)],
+    [warehouseNames]
+  );
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -183,12 +189,12 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit_price && <SortHeader label={`Price (${currencySymbol})`} sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
-              {warehouseNames.map(wh => (
-                <th key={wh} className="text-right p-2 font-medium whitespace-nowrap text-xs">{wh}</th>
-              ))}
               {warehouseNames.length > 0 && (
                 <th className="text-right p-2 font-medium whitespace-nowrap text-xs">Total</th>
               )}
+              {orderedWarehouses.map(wh => (
+                <th key={wh} className={`text-right p-2 font-medium whitespace-nowrap text-xs ${isEngineerWarehouse(wh) ? 'bg-accent/5' : ''}`}>{wh}</th>
+              ))}
               <th className="text-center p-2 font-medium whitespace-nowrap"></th>
             </tr>
           </thead>
@@ -293,20 +299,19 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                       />
                     </td>
                   )}
-                  {warehouseNames.map(wh => {
-                    const stock = getStock(item);
-                    const qty = stock?.breakdown?.[wh]?.quantity;
-                    return (
-                      <td key={wh} className="p-2 text-right text-xs">
-                        {qty !== undefined ? qty : '—'}
-                      </td>
-                    );
-                  })}
                   {warehouseNames.length > 0 && (
                     <td className="p-2 text-right text-xs font-semibold">
                       {getStock(item)?.total ?? '—'}
                     </td>
                   )}
+                  {orderedWarehouses.map(wh => {
+                    const qty = getStock(item)?.breakdown?.[wh]?.quantity;
+                    return (
+                      <td key={wh} className={`p-2 text-right text-xs ${isEngineerWarehouse(wh) ? 'bg-accent/5' : ''}`}>
+                        {qty !== undefined ? qty : '—'}
+                      </td>
+                    );
+                  })}
                   <td className="p-1 text-center">
                     <Button
                       size="icon"
