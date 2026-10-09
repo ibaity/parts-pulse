@@ -173,6 +173,7 @@ export default function PartsCatalog() {
   const [search, setSearch] = useState(initialQ);
   const [section, setSection] = useState(ALL);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [selected, setSelected] = useState(
     () => (initialQ && findCatalogPart(initialQ)) || null
   );
@@ -180,14 +181,17 @@ export default function PartsCatalog() {
   const current = catalog.find(g => g.id === group);
   const sections = useMemo(() => [...new Set(current.items.map(i => i.section))].sort(), [current]);
 
+  const { lookup, isLoading: stockLoading, error: stockError } = useCatalogStock(inStockOnly);
+
   const filtered = useMemo(() => {
     const q = search.trim();
     return current.items.filter(i =>
       (section === ALL || i.section === section) &&
       (!q || i.partNo.includes(q) || i.supplierNo.includes(q) ||
-        fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models))
+        fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
+      (!inStockOnly || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0)
     );
-  }, [current, search, section]);
+  }, [current, search, section, inStockOnly, lookup]);
 
   const changeGroup = (g) => { setGroup(g); setSection(ALL); setLimit(PAGE_SIZE); };
 
@@ -226,9 +230,23 @@ export default function PartsCatalog() {
             {sections.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button
+          variant={inStockOnly ? 'default' : 'outline'}
+          onClick={() => { setInStockOnly(v => !v); setLimit(PAGE_SIZE); }}
+          aria-pressed={inStockOnly}
+        >
+          {inStockOnly && stockLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Warehouse className="w-4 h-4 mr-2" />}
+          In stock only
+        </Button>
       </div>
 
-      <p className="text-sm text-muted-foreground">{filtered.length} part{filtered.length === 1 ? '' : 's'}</p>
+      {inStockOnly && stockError && (
+        <p className="text-sm text-critical">Could not load stock — showing no results.</p>
+      )}
+
+      <p className="text-sm text-muted-foreground">
+        {inStockOnly && stockLoading ? 'Checking stock…' : `${filtered.length} part${filtered.length === 1 ? '' : 's'}`}
+      </p>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">No parts match your search.</div>
