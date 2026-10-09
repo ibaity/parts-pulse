@@ -188,6 +188,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
               {visibleCols.category && <SortHeader label="Category" sortKey="category" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {visibleCols.minimum_stock && <SortHeader label="Min Stock" sortKey="minimum_stock" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit_price && <SortHeader label={`Price (${currencySymbol})`} sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
+              {visibleCols.unit_price && showsSar(currency, sarRate) && <SortHeader label="Price (SAR)" sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {warehouseNames.length > 0 && (
                 <th className="text-right p-2 font-medium whitespace-nowrap text-xs">Total</th>
@@ -285,9 +286,11 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                           onChange={e => updateField(item.id, 'unit_price', e.target.value)}
                         />
                       </div>
-                      {showsSar(currency, sarRate) && Number(getValue(item, 'unit_price')) > 0 && (
-                        <bdi className="block pr-1 text-right text-[11px] font-medium text-foreground tabular-nums cursor-help" title={`${currencySymbol} ${Number(getValue(item, 'unit_price')).toFixed(2)}`}>{formatSar(getValue(item, 'unit_price'), sarRate)}</bdi>
-                      )}
+                    </td>
+                  )}
+                  {visibleCols.unit_price && showsSar(currency, sarRate) && (
+                    <td className="p-1 text-right text-xs font-medium tabular-nums whitespace-nowrap">
+                      <bdi>{Number(getValue(item, 'unit_price')) > 0 ? formatSar(getValue(item, 'unit_price'), sarRate) : '—'}</bdi>
                     </td>
                   )}
                   {visibleCols.unit && (
