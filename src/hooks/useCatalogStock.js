@@ -40,8 +40,21 @@ async function loadStockIndex() {
     catalogCodesInText(item.item_code).forEach(k => k !== own && index(k, item));
   });
 
-  const aliases = new Map();
+  // A "manufacturer code" repeated across many items (e.g. a brand name like "Werfen") identifies nothing:
+  // using it would merge the stock of unrelated parts, so it is dropped.
+  const mfrCount = new Map();
   for (const mi of masters) {
+    const k = catalogCodeKey(mi.manufacturer_item_code);
+    if (k) mfrCount.set(k, (mfrCount.get(k) || 0) + 1);
+  }
+  const usableMasters = masters.map(mi => (
+    (mfrCount.get(catalogCodeKey(mi.manufacturer_item_code)) || 0) > 3
+      ? { ...mi, manufacturer_item_code: '' }
+      : mi
+  ));
+
+  const aliases = new Map();
+  for (const mi of usableMasters) {
     const m = catalogCodeKey(mi.mediserv_item_code);
     const f = catalogCodeKey(mi.manufacturer_item_code);
     addAlias(aliases, m, f);
@@ -53,7 +66,7 @@ async function loadStockIndex() {
   }
 
   const lastUpdate = latestRuns.reduce((max, r) => (!max || r.created_date > max ? r.created_date : max), null);
-  return { byCode, aliases, masters, lastUpdate };
+  return { byCode, aliases, masters: usableMasters, lastUpdate };
 }
 
 // Lazily loads stock (only once a part is opened) and returns a lookup by part number.

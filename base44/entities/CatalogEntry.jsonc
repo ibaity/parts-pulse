@@ -8,6 +8,8 @@
     "name": { "type": "string", "title": "Name" },
     "description": { "type": "string", "title": "Description" },
     "models": { "type": "string", "title": "Models" },
+    "device": { "type": "string", "title": "Device (catalog group id)" },
+    "linked_part_no": { "type": "string", "title": "Linked built-in catalog part" },
     "section": { "type": "string", "title": "Section" },
     "weight": { "type": "string", "title": "Weight (kg)" },
     "size": { "type": "string", "title": "Size (cm)" },
