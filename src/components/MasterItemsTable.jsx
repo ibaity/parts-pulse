@@ -286,7 +286,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                         />
                       </div>
                       {showsSar(currency, sarRate) && Number(getValue(item, 'unit_price')) > 0 && (
-                        <bdi className="block pr-1 text-right text-[10px] text-muted-foreground tabular-nums">≈ {formatSar(getValue(item, 'unit_price'), sarRate)}</bdi>
+                        <bdi className="block pr-1 text-right text-[11px] font-medium text-foreground tabular-nums cursor-help" title={`${currencySymbol} ${Number(getValue(item, 'unit_price')).toFixed(2)}`}>{formatSar(getValue(item, 'unit_price'), sarRate)}</bdi>
                       )}
                     </td>
                   )}

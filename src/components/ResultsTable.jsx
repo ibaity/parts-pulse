@@ -393,8 +393,9 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
             <span>Showing {visibleItems.length} of {purchaseItems.length} items{normalizedManual.length > 0 && ` · ${normalizedManual.length} manual items included in export`}</span>
             {grandTotal > 0 && (
               <span className="text-sm font-semibold text-foreground">
-                Total: <bdi>{totalText}</bdi>
-                {withSar && <span className="ml-2 text-xs font-normal text-muted-foreground">≈ <bdi>{formatSar(grandTotal, sarRate)}</bdi></span>}
+                Total: {withSar
+                  ? <bdi className="cursor-help" title={`${totalText}  (1 ${currency} = ${sarRate} SAR)`}>{formatSar(grandTotal, sarRate)}</bdi>
+                  : <bdi>{totalText}</bdi>}
               </span>
             )}
           </div>
