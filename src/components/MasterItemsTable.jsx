@@ -11,7 +11,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
 import { Link } from 'react-router-dom';
 import { findCatalogPart } from '@/lib/catalogLookup';
-import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch } from '@/lib/partConstants';
+import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch, showsSar, formatSar } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
   { key: 'mediserv_item_code', label: 'Mediserv Code' },
@@ -23,7 +23,7 @@ const COLUMN_DEFS = [
   { key: 'unit', label: 'Unit' },
 ];
 
-export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency, stockMap = {}, warehouseNames = [] }) {
+export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency, sarRate, stockMap = {}, warehouseNames = [] }) {
   const [search, setSearch] = useState('');
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -279,6 +279,9 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                           onChange={e => updateField(item.id, 'unit_price', e.target.value)}
                         />
                       </div>
+                      {showsSar(currency, sarRate) && Number(getValue(item, 'unit_price')) > 0 && (
+                        <bdi className="block pr-1 text-right text-[10px] text-muted-foreground tabular-nums">≈ {formatSar(getValue(item, 'unit_price'), sarRate)}</bdi>
+                      )}
                     </td>
                   )}
                   {visibleCols.unit && (

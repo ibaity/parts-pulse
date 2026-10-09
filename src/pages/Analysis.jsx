@@ -15,6 +15,7 @@ import PageHeader from '@/components/PageHeader';
 import VendorNotice from '@/components/VendorNotice';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
+import { getSarRate } from '@/lib/partConstants';
 
 export default function Analysis() {
   const { vendors, selectedVendor } = useVendorSelection();
@@ -26,6 +27,7 @@ export default function Analysis() {
   const [rerunId, setRerunId] = useState(null);
   const [rerunStep, setRerunStep] = useState('');
   const [fileCurrency, setFileCurrency] = useState('SAR');
+  const [sarRate, setSarRate] = useState(1);
   const [manualItems, setManualItems] = useState([]);
   const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
@@ -74,7 +76,10 @@ export default function Analysis() {
       loadManualItems();
       base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100)
         .then(files => {
-          if (files.length > 0 && files[0].currency) setFileCurrency(files[0].currency);
+          if (files.length > 0 && files[0].currency) {
+            setFileCurrency(files[0].currency);
+            setSarRate(getSarRate(files[0].currency, files[0].sar_rate));
+          }
         })
         .catch(() => {});
     } else {
@@ -169,6 +174,7 @@ export default function Analysis() {
             <ManualOrderPanel
               vendorId={selectedVendor}
               currency={fileCurrency}
+              sarRate={sarRate}
               items={manualItems}
               onAdded={loadManualItems}
               onDeleted={(id) => setManualItems(prev => prev.filter(i => i.id !== id))}
@@ -276,6 +282,7 @@ export default function Analysis() {
                 vendorId={selectedVendor}
                 vendorName={selectedVendorObj?.name}
                 currency={fileCurrency}
+                sarRate={sarRate}
                 manualItems={manualItems}
               />
             ) : (

@@ -4,7 +4,8 @@ import { fetchAll } from '@/lib/fetchAll';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Package, FileSpreadsheet } from 'lucide-react';
-import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
+import { getCurrencySymbol, getSarRate } from '@/lib/partConstants';
+import Money from '@/components/Money';
 
 export default function DeviceModelParts({ model, vendor }) {
   const [parts, setParts] = useState([]);
@@ -40,6 +41,7 @@ export default function DeviceModelParts({ model, vendor }) {
   }, [model.master_file_id]);
 
   const currencySymbol = getCurrencySymbol(masterFile?.currency);
+  const sarRate = getSarRate(masterFile?.currency, masterFile?.sar_rate);
 
   if (loading) {
     return (
@@ -95,7 +97,7 @@ export default function DeviceModelParts({ model, vendor }) {
                   <td className="p-3 text-xs">{p.category || '-'}</td>
                   <td className="p-3 text-right text-xs">{p.minimum_stock ?? '-'}</td>
                   <td className="p-3 text-right text-xs font-medium">
-                    {p.unit_price ? `${currencySymbol} ${formatPrice(p.unit_price)}` : '-'}
+                    <Money value={p.unit_price} currency={masterFile?.currency} sarRate={sarRate} />
                   </td>
                 </tr>
               ))}
