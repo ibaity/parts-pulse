@@ -378,6 +378,7 @@ export default function PartsCatalog() {
   const [section, setSection] = useState(ALL);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [needsInfoOnly, setNeedsInfoOnly] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState(ALL);
   const [selected, setSelected] = useState(
     () => (initialQ && findCatalogPart(initialQ)) || null
@@ -437,9 +438,10 @@ export default function PartsCatalog() {
       (deviceFilter === ALL || (deviceFilter === NONE ? !i.device : i.device === deviceFilter)) &&
       (!q || i.partNo.includes(q) || i.supplierNo.includes(q) ||
         fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
-      (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0)
+      (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0) &&
+      (!needsInfoOnly || !i.name || !(i.image || i.imageUrl) || !i.section || !i.device || !i.models)
     );
-  }, [items, search, section, deviceFilter, inStockOnly, stockTab, lookup]);
+  }, [items, search, section, deviceFilter, inStockOnly, needsInfoOnly, stockTab, lookup]);
 
   const changeGroup = (g) => { setGroup(g); setSection(ALL); setDeviceFilter(ALL); setLimit(PAGE_SIZE); };
 
@@ -500,6 +502,14 @@ export default function PartsCatalog() {
           {inStockOnly && stockLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Warehouse className="w-4 h-4 mr-2" />}
           In stock only
         </Button>}
+        <Button
+          variant={needsInfoOnly ? 'default' : 'outline'}
+          onClick={() => { setNeedsInfoOnly(v => !v); setLimit(PAGE_SIZE); }}
+          aria-pressed={needsInfoOnly}
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          Needs info
+        </Button>
       </div>
 
       {(inStockOnly || stockTab) && stockError && (
