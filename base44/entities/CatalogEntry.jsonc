@@ -1,0 +1,17 @@
+{
+  "name": "CatalogEntry",
+  "type": "object",
+  "properties": {
+    "code_key": { "type": "string", "title": "Normalized Part Code" },
+    "part_no": { "type": "string", "title": "Part Number" },
+    "supplier_no": { "type": "string", "title": "Supplier / Mediserv No." },
+    "name": { "type": "string", "title": "Name" },
+    "description": { "type": "string", "title": "Description" },
+    "models": { "type": "string", "title": "Models" },
+    "section": { "type": "string", "title": "Section" },
+    "weight": { "type": "string", "title": "Weight (kg)" },
+    "size": { "type": "string", "title": "Size (cm)" },
+    "image_url": { "type": "string", "title": "Image URL" }
+  },
+  "required": ["code_key"]
+}
