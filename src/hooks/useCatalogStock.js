@@ -5,7 +5,7 @@ import { fetchAll } from '@/lib/fetchAll';
 import { catalogCodeKey, catalogCodesInText } from '@/lib/analysisUtils';
 
 const ITEM_FIELDS = ['item_code', 'description', 'current_stock', 'warehouse_breakdown'];
-const MASTER_FIELDS = ['mediserv_item_code', 'manufacturer_item_code', 'description'];
+const MASTER_FIELDS = ['mediserv_item_code', 'manufacturer_item_code', 'description', 'category'];
 
 const addAlias = (map, from, to) => {
   if (!from || !to || from === to) return;
@@ -53,7 +53,7 @@ async function loadStockIndex() {
   }
 
   const lastUpdate = latestRuns.reduce((max, r) => (!max || r.created_date > max ? r.created_date : max), null);
-  return { byCode, aliases, lastUpdate };
+  return { byCode, aliases, masters, lastUpdate };
 }
 
 // Lazily loads stock (only once a part is opened) and returns a lookup by part number.
@@ -95,5 +95,5 @@ export function useCatalogStock(enabled) {
     return { found: items.size > 0, total, warehouses: rows, codes: [...keys] };
   }, [data]);
 
-  return { lookup, isLoading, error, lastUpdate: data?.lastUpdate };
+  return { lookup, isLoading, error, masters: data?.masters, lastUpdate: data?.lastUpdate };
 }

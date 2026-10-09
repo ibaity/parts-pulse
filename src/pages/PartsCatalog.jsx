@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler, Warehouse, Loader2 } from 'lucide-react';
+import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler, Warehouse, Loader2, Pencil, Upload } from 'lucide-react';
 import catalog from '@/data/sparePartsCatalog.json';
 import PageHeader from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,14 +15,18 @@ import { useToast } from '@/components/ui/use-toast';
 import { fuzzyMatch } from '@/lib/partConstants';
 import { useCatalogStock } from '@/hooks/useCatalogStock';
 import { findCatalogPart } from '@/lib/catalogLookup';
+import { useCatalogEntries } from '@/hooks/useCatalogEntries';
+import { catalogCodeKey } from '@/lib/analysisUtils';
+import { base44 } from '@/api/base44Client';
 
 const PAGE_SIZE = 48;
 const ALL = '__all__';
-const imgSrc = (file) => `/catalog/img/${file}`;
+const STOCK_TAB = '__stock__';
+const imgSrc = (part) => part.imageUrl || `/catalog/img/${part.image}`;
 
 function PartImage({ part, className = '' }) {
   const [failed, setFailed] = useState(false);
-  if (!part.image || failed) {
+  if ((!part.image && !part.imageUrl) || failed) {
     return (
       <div className={`flex items-center justify-center bg-muted text-muted-foreground ${className}`}>
         <ImageOff className="w-6 h-6 opacity-50" />
@@ -29,7 +35,7 @@ function PartImage({ part, className = '' }) {
   }
   return (
     <img
-      src={imgSrc(part.image)}
+      src={imgSrc(part)}
       alt={part.name}
       loading="lazy"
       onError={() => setFailed(true)}
@@ -49,6 +55,7 @@ function PartCard({ part, onOpen }) {
         <p className="font-mono text-xs text-accent font-semibold">{part.partNo || '—'}</p>
         <p className="text-sm font-medium leading-snug line-clamp-2">{part.name}</p>
         <p className="text-xs text-muted-foreground line-clamp-1">{part.models || part.section}</p>
+        {part.stockTotal != null && <Badge variant="secondary">{part.stockTotal} in stock</Badge>}
       </div>
     </button>
   );
@@ -114,8 +121,81 @@ function StockPanel({ part }) {
   );
 }
 
-function PartDialog({ part, onClose }) {
+const FIELDS = [
+  ['name', 'Name'], ['supplierNo', 'Supplier / Mediserv No.'], ['section', 'Section'],
+  ['models', 'Models'], ['weight', 'Weight (kg)'], ['size', 'Size (cm)'],
+];
+
+function EditForm({ part, entries, onDone }) {
   const { toast } = useToast();
+  const [values, setValues] = useState(() => Object.fromEntries(
+    [...FIELDS.map(([k]) => k), 'description', 'imageUrl'].map(k => [k, part[k] || ''])
+  ));
+  const [uploading, setUploading] = useState(false);
+  const set = (k, v) => setValues(prev => ({ ...prev, [k]: v }));
+
+  const upload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      set('imageUrl', file_url);
+    } catch {
+      toast({ title: 'Image upload failed', variant: 'destructive' });
+    }
+    setUploading(false);
+  };
+
+  const submit = async () => {
+    const code_key = catalogCodeKey(part.partNo) || catalogCodeKey(part.supplierNo);
+    try {
+      await entries.save.mutateAsync({
+        existing: entries.find(part.partNo, part.supplierNo),
+        values: {
+          code_key, part_no: part.partNo, supplier_no: values.supplierNo, name: values.name,
+          description: values.description, models: values.models, section: values.section,
+          weight: values.weight, size: values.size, image_url: values.imageUrl,
+        },
+      });
+      toast({ title: 'Catalog entry saved' });
+      onDone({ ...part, ...values });
+    } catch {
+      toast({ title: 'Save failed', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <PartImage part={{ ...part, imageUrl: values.imageUrl }} className="w-24 h-24 rounded-lg border shrink-0" />
+        <Label className="cursor-pointer">
+          <span className="inline-flex items-center gap-2 text-sm border rounded-md px-3 py-2 hover:bg-muted">
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Upload image
+          </span>
+          <input type="file" accept="image/*" className="hidden" onChange={e => upload(e.target.files?.[0])} />
+        </Label>
+      </div>
+      {FIELDS.map(([k, label]) => (
+        <div key={k} className="space-y-1">
+          <Label className="text-xs">{label}</Label>
+          <Input value={values[k]} onChange={e => set(k, e.target.value)} />
+        </div>
+      ))}
+      <div className="space-y-1">
+        <Label className="text-xs">Description</Label>
+        <Textarea value={values.description} onChange={e => set('description', e.target.value)} rows={3} />
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={submit} disabled={uploading || entries.save.isPending}>Save</Button>
+        <Button variant="ghost" onClick={() => onDone(null)}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+function PartDialog({ part, onClose, entries, onSaved }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(part.partNo);
@@ -125,7 +205,7 @@ function PartDialog({ part, onClose }) {
     }
   };
   return (
-    <Dialog open={!!part} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={!!part} onOpenChange={(o) => { if (!o) { setEditing(false); onClose(); } }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         {part && (
           <>
@@ -133,11 +213,17 @@ function PartDialog({ part, onClose }) {
               <DialogTitle className="pr-6">{part.name}</DialogTitle>
               <DialogDescription>{part.section}</DialogDescription>
             </DialogHeader>
+            {editing ? (
+              <EditForm part={part} entries={entries} onDone={(saved) => { setEditing(false); if (saved) onSaved(saved); }} />
+            ) : (
             <div className="grid sm:grid-cols-[220px_1fr] gap-5">
               <PartImage part={part} className="w-full h-56 rounded-lg border" />
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-lg font-semibold">{part.partNo || '—'}</span>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(true)} aria-label="Edit catalog entry">
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                   {part.partNo && (
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={copy} aria-label="Copy part number">
                       <Copy className="w-4 h-4" />
@@ -157,6 +243,7 @@ function PartDialog({ part, onClose }) {
                 )}
               </div>
             </div>
+            )}
           </>
         )}
       </DialogContent>
@@ -178,20 +265,53 @@ export default function PartsCatalog() {
     () => (initialQ && findCatalogPart(initialQ)) || null
   );
 
-  const current = catalog.find(g => g.id === group);
-  const sections = useMemo(() => [...new Set(current.items.map(i => i.section))].sort(), [current]);
+  const entries = useCatalogEntries();
+  const stockTab = group === STOCK_TAB;
+  const { lookup, isLoading: stockLoading, error: stockError, masters } = useCatalogStock(inStockOnly || stockTab);
 
-  const { lookup, isLoading: stockLoading, error: stockError } = useCatalogStock(inStockOnly);
+  // Master items currently in stock; falls back to master data when the built-in catalog has no entry.
+  const stockItems = useMemo(() => {
+    if (!masters) return [];
+    const seen = new Set();
+    const out = [];
+    for (const m of masters) {
+      const code = m.manufacturer_item_code || m.mediserv_item_code;
+      const key = catalogCodeKey(code) || catalogCodeKey(m.mediserv_item_code);
+      if (!key || seen.has(key)) continue;
+      const total = lookup(m.manufacturer_item_code, m.mediserv_item_code)?.total ?? 0;
+      if (total <= 0) continue;
+      seen.add(key);
+      const base = findCatalogPart(m.manufacturer_item_code, m.mediserv_item_code) || {
+        partNo: code, supplierNo: m.mediserv_item_code || '', name: m.description || code,
+        description: '', models: '', section: m.category || 'Uncategorized',
+      };
+      out.push({ ...base, stockTotal: total });
+    }
+    return out;
+  }, [masters, lookup]);
+
+  const baseItems = stockTab ? stockItems : catalog.find(g => g.id === group).items;
+  const items = useMemo(() => baseItems.map(p => {
+    const e = entries.find(p.partNo, p.supplierNo);
+    if (!e) return p;
+    return {
+      ...p, entry: e,
+      name: e.name || p.name, description: e.description || p.description, models: e.models || p.models,
+      supplierNo: e.supplier_no || p.supplierNo, section: e.section || p.section,
+      weight: e.weight || p.weight, size: e.size || p.size, imageUrl: e.image_url || '',
+    };
+  }), [baseItems, entries.find]);
+  const sections = useMemo(() => [...new Set(items.map(i => i.section))].sort(), [items]);
 
   const filtered = useMemo(() => {
     const q = search.trim();
-    return current.items.filter(i =>
+    return items.filter(i =>
       (section === ALL || i.section === section) &&
       (!q || i.partNo.includes(q) || i.supplierNo.includes(q) ||
         fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
-      (!inStockOnly || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0)
+      (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0)
     );
-  }, [current, search, section, inStockOnly, lookup]);
+  }, [items, search, section, inStockOnly, stockTab, lookup]);
 
   const changeGroup = (g) => { setGroup(g); setSection(ALL); setLimit(PAGE_SIZE); };
 
@@ -205,6 +325,10 @@ export default function PartsCatalog() {
 
       <Tabs value={group} onValueChange={changeGroup}>
         <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value={STOCK_TAB}>
+            <Warehouse className="w-4 h-4 mr-1.5" />In Stock (Master)
+            {masters && <Badge variant="secondary" className="ml-2">{stockItems.length}</Badge>}
+          </TabsTrigger>
           {catalog.map(g => (
             <TabsTrigger key={g.id} value={g.id}>
               {g.name}<Badge variant="secondary" className="ml-2">{g.items.length}</Badge>
@@ -230,22 +354,22 @@ export default function PartsCatalog() {
             {sections.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button
+        {!stockTab && <Button
           variant={inStockOnly ? 'default' : 'outline'}
           onClick={() => { setInStockOnly(v => !v); setLimit(PAGE_SIZE); }}
           aria-pressed={inStockOnly}
         >
           {inStockOnly && stockLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Warehouse className="w-4 h-4 mr-2" />}
           In stock only
-        </Button>
+        </Button>}
       </div>
 
-      {inStockOnly && stockError && (
+      {(inStockOnly || stockTab) && stockError && (
         <p className="text-sm text-critical">Could not load stock — showing no results.</p>
       )}
 
       <p className="text-sm text-muted-foreground">
-        {inStockOnly && stockLoading ? 'Checking stock…' : `${filtered.length} part${filtered.length === 1 ? '' : 's'}`}
+        {(inStockOnly || stockTab) && stockLoading ? 'Checking stock…' : `${filtered.length} part${filtered.length === 1 ? '' : 's'}`}
       </p>
 
       {filtered.length === 0 ? (
@@ -264,7 +388,7 @@ export default function PartsCatalog() {
         </div>
       )}
 
-      <PartDialog part={selected} onClose={() => setSelected(null)} />
+      <PartDialog part={selected} onClose={() => setSelected(null)} entries={entries} onSaved={setSelected} />
     </div>
   );
 }
