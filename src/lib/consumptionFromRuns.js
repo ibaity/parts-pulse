@@ -1,4 +1,4 @@
-import { normalizeCode, isEngineerWarehouse, parseWarehouse } from '@/lib/analysisUtils';
+import { catalogCodeKey, isEngineerWarehouse, parseWarehouse } from '@/lib/analysisUtils';
 
 export { isEngineerWarehouse };
 
@@ -26,9 +26,10 @@ export function computePeriods(runsWithItems) {
     const map = new Map();
     for (const it of items) {
       if (it.status === 'unknown') continue;
-      const code = normalizeCode(it.item_code);
+      const code = catalogCodeKey(it.item_code);
       if (!code) continue;
-      const byWh = new Map();
+      // A part written two ways in one report ("D0064730" and "IMM0064730") is one part: add them up.
+      const byWh = map.get(code) || new Map();
       for (const [name, info] of Object.entries(it.warehouse_breakdown || {})) {
         const { key, name: parsedName } = parseWarehouse(name);
         byWh.set(key, (byWh.get(key) || 0) + (Number(info?.quantity) || 0));
@@ -43,9 +44,9 @@ export function computePeriods(runsWithItems) {
     const map = new Map();
     for (const it of items) {
       if (it.status === 'unknown') continue;
-      const code = normalizeCode(it.item_code);
+      const code = catalogCodeKey(it.item_code);
       if (!code) continue;
-      map.set(code, Number(it.current_stock) || 0);
+      map.set(code, (map.get(code) || 0) + (Number(it.current_stock) || 0));
       if (Number(it.unit_price) > 0) priceByCode.set(code, Number(it.unit_price));
       if (!infoByCode.has(code) || it.description) infoByCode.set(code, { code: it.item_code, description: it.description || '' });
     }

@@ -8,8 +8,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { getCurrencySymbol, formatPrice } from '@/lib/partConstants';
 import Money from '@/components/Money';
+import { catalogCodeKey, codeIncludes } from '@/lib/analysisUtils';
 
-const normalizeCode = (s) => (s || '').toLowerCase().trim();
+// Exact code first ("D0064730", "IMM0064730" and "0064730" are the same part), then a partial code.
+const findByCode = (masterItems, code) => {
+  const key = catalogCodeKey(code);
+  return masterItems.find(i => catalogCodeKey(i.mediserv_item_code) === key || catalogCodeKey(i.manufacturer_item_code) === key)
+    || masterItems.find(i => codeIncludes(i.mediserv_item_code, code) || codeIncludes(i.manufacturer_item_code, code));
+};
 
 export default function ManualOrderPanel({ vendorId, currency, sarRate, items, onAdded, onDeleted, onUpdated }) {
   const [masterItems, setMasterItems] = useState([]);
@@ -37,36 +43,13 @@ export default function ManualOrderPanel({ vendorId, currency, sarRate, items, o
   useEffect(() => {
     const code = quickCode.trim();
     if (!code) { setPreview(null); return; }
-    const norm = normalizeCode(code);
-    // Try exact match first
-    let item = masterItems.find(
-      i => normalizeCode(i.mediserv_item_code) === norm ||
-           normalizeCode(i.manufacturer_item_code) === norm
-    );
-    // If no exact, try partial
-    if (!item) {
-      item = masterItems.find(
-        i => (i.mediserv_item_code && normalizeCode(i.mediserv_item_code).includes(norm)) ||
-             (i.manufacturer_item_code && normalizeCode(i.manufacturer_item_code).includes(norm))
-      );
-    }
-    setPreview(item || null);
+    setPreview(findByCode(masterItems, code) || null);
   }, [quickCode, masterItems]);
 
   const handleQuickAdd = async () => {
     const code = quickCode.trim();
     if (!code) return;
-    const norm = normalizeCode(code);
-    let item = masterItems.find(
-      i => normalizeCode(i.mediserv_item_code) === norm ||
-           normalizeCode(i.manufacturer_item_code) === norm
-    );
-    if (!item) {
-      item = masterItems.find(
-        i => (i.mediserv_item_code && normalizeCode(i.mediserv_item_code).includes(norm)) ||
-             (i.manufacturer_item_code && normalizeCode(i.manufacturer_item_code).includes(norm))
-      );
-    }
+    const item = findByCode(masterItems, code);
     if (!item) {
       toast({ title: 'Not Found', description: 'No master item with this code. Use Custom Item button.', variant: 'destructive' });
       return;

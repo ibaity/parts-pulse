@@ -7,20 +7,35 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
-// Catalog matching key: Immucor parts may be coded "D0064730", "D IMMU 0064730", "D-IMMU-64730" or just "64730",
-// so the "D" / "D IMMU" prefix and leading zeros are ignored and all of these link to catalog part 0064730.
+// Prefixes put in front of the same part number: our system writes "D0064730" / "D IMMU 0064730",
+// the manufacturer writes "0064730" or "IMM0064730" (also "IMMU" / "IMMUCOR").
+const CODE_PREFIX = /^(?:d(?:imm(?:u(?:cor)?)?)?|imm(?:u(?:cor)?)?)(?=\d)/;
+
+// Normalized code without the "D" / "IMM" prefix, leading zeros kept ("IMM-0064730" -> "0064730").
+export function stripCodePrefix(code) {
+  return normalizeCode(code).replace(CODE_PREFIX, '');
+}
+
+// Part identity key: "D0064730", "D IMMU 0064730", "IMM0064730", "D-IMMU-64730" and "64730" are all the same part,
+// so the prefix and leading zeros are ignored and all of these link to catalog part 0064730.
 export function catalogCodeKey(code) {
-  return normalizeCode(code).replace(/^d(?:immu(?:cor)?)?(?=\d)/, '').replace(/^0+(?=.)/, '');
+  return stripCodePrefix(code).replace(/^0+(?=.)/, '');
+}
+
+// Search helper: typing "D006", "IMM006" or "006" finds D0064730 and IMM0064730 alike.
+export function codeIncludes(target, query) {
+  const q = stripCodePrefix(query);
+  return !!q && normalizeCode(target).includes(q);
 }
 
 // Part numbers written inside a name/description, e.g. "D IMMU 0065160 Wash Station Pump" -> 65160.
-// Picks the code after a "D IMMU" prefix plus any standalone 7–8 digit number, optionally "D"-prefixed.
+// Picks the code after a "D IMMU" / "IMM" prefix plus any standalone 7–8 digit number, optionally "D"/"IMM"-prefixed.
 export function catalogCodesInText(text) {
   const raw = (text || '').toString();
   const keys = new Set();
-  const prefixed = raw.match(/^\s*d[\s\-_.]*immu(?:cor)?[\s\-_.:#]*([a-z0-9][a-z0-9\-_.]*)/i);
+  const prefixed = raw.match(/^\s*(?:d[\s\-_.]*)?imm(?:u(?:cor)?)?[\s\-_.:#]*([a-z0-9][a-z0-9\-_.]*)/i);
   if (prefixed) keys.add(catalogCodeKey(prefixed[1]));
-  for (const n of raw.match(/(?<![\w-])d?\d{7,8}(?![\w-])/gi) || []) keys.add(catalogCodeKey(n));
+  for (const n of raw.match(/(?<![\w-])(?:d|imm(?:u(?:cor)?)?)?[\s\-]?\d{7,8}(?![\w-])/gi) || []) keys.add(catalogCodeKey(n));
   keys.delete('');
   return [...keys];
 }
@@ -49,24 +64,30 @@ export function isWarehouseEnabled(warehouseName, enabledWarehouses) {
   );
 }
 
+// Codes are indexed as written and by part key, so a report code "D0064730" still finds a master item
+// recorded as "0064730" or "IMM0064730" (an exact match is preferred when both exist).
 export function buildMasterIndex(masterItems) {
   const byMediserv = new Map();
   const byManufacturer = new Map();
+  const byMediservKey = new Map();
+  const byManufacturerKey = new Map();
+  const add = (map, key, mi) => { if (key && !map.has(key)) map.set(key, mi); };
   for (const mi of masterItems) {
-    const m = normalizeCode(mi.mediserv_item_code);
-    const f = normalizeCode(mi.manufacturer_item_code);
-    if (m && !byMediserv.has(m)) byMediserv.set(m, mi);
-    if (f && !byManufacturer.has(f)) byManufacturer.set(f, mi);
+    add(byMediserv, normalizeCode(mi.mediserv_item_code), mi);
+    add(byManufacturer, normalizeCode(mi.manufacturer_item_code), mi);
+    add(byMediservKey, catalogCodeKey(mi.mediserv_item_code), mi);
+    add(byManufacturerKey, catalogCodeKey(mi.manufacturer_item_code), mi);
   }
-  return { byMediserv, byManufacturer };
+  return { byMediserv, byManufacturer, byMediservKey, byManufacturerKey };
 }
 
 export function matchMasterItem(itemCode, index) {
   const code = normalizeCode(itemCode);
   if (!code) return { item: null, matchedVia: 'none' };
-  const viaMediserv = index.byMediserv.get(code);
+  const key = catalogCodeKey(itemCode);
+  const viaMediserv = index.byMediserv.get(code) || index.byMediservKey.get(key);
   if (viaMediserv) return { item: viaMediserv, matchedVia: 'mediserv_code' };
-  const viaManufacturer = index.byManufacturer.get(code);
+  const viaManufacturer = index.byManufacturer.get(code) || index.byManufacturerKey.get(key);
   if (viaManufacturer) return { item: viaManufacturer, matchedVia: 'manufacturer_code' };
   return { item: null, matchedVia: 'none' };
 }
@@ -100,7 +121,8 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   for (const row of reportItems) {
     const code = (row.item_code ?? '').toString().trim();
     if (!code) continue;
-    const key = normalizeCode(code);
+    // "D0064730" and "IMM0064730" rows in one report are the same part: their stock is added up.
+    const key = catalogCodeKey(code);
     if (!itemMap.has(key)) itemMap.set(key, { code, warehouses: new Map() });
 
     const whName = (row.warehouse ?? '').toString().trim() || 'Unknown';

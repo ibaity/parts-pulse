@@ -1,3 +1,5 @@
+import { codeIncludes } from '@/lib/analysisUtils';
+
 export const PART_CATEGORIES = [
   { value: 'Fast Moving', label: 'Fast Moving', desc: 'Less than 1 year' },
   { value: 'As Needed', label: 'As Needed', desc: 'As needed' },
@@ -54,6 +56,7 @@ export function fuzzyMatch(query, target) {
   const q = query.toLowerCase().trim();
   const t = String(target).toLowerCase();
   if (t.includes(q)) return true;
+  if (codeIncludes(t, q)) return true; // "IMM006" finds "D0064730"
   let qi = 0;
   for (let ti = 0; ti < t.length && qi < q.length; ti++) {
     if (t[ti] === q[qi]) qi++;

@@ -1,4 +1,4 @@
-import { normalizeCode } from '@/lib/analysisUtils';
+import { catalogCodeKey } from '@/lib/analysisUtils';
 import { round2 } from '@/lib/partConstants';
 import { manufacturerUsage } from '@/lib/dedupe';
 
@@ -31,14 +31,14 @@ const toPrice = (v) => {
 export function buildPriceUpdatePlan(rows, mapping, masterItems) {
   const byCode = new Map();
   for (const m of masterItems) {
-    const k = normalizeCode(m.mediserv_item_code);
+    const k = catalogCodeKey(m.mediserv_item_code);
     if (!k) continue;
     if (!byCode.has(k)) byCode.set(k, []);
     byCode.get(k).push(m);
   }
   const usage = manufacturerUsage(masterItems);
   // A manufacturer code used by several parts is a brand name (e.g. "Werfen"), not a part number.
-  const isBrandLike = (code) => { const k = normalizeCode(code); return k && usage.get(k) > 2; };
+  const isBrandLike = (code) => { const k = catalogCodeKey(code); return k && usage.get(k) > 2; };
 
   // Last row wins if a code is repeated in the file.
   const fileRows = new Map();
@@ -46,7 +46,7 @@ export function buildPriceUpdatePlan(rows, mapping, masterItems) {
   let invalid = 0;
   for (const r of rows) {
     const code = String(r[mapping.code] ?? '').trim();
-    const key = normalizeCode(code);
+    const key = catalogCodeKey(code);
     const price = toPrice(r[mapping.price]);
     if (!key || price === null) { invalid++; continue; }
     if (fileRows.has(key)) duplicatesInFile++;
@@ -71,7 +71,7 @@ export function buildPriceUpdatePlan(rows, mapping, masterItems) {
       const patch = {};
       if (old !== row.price) { patch.unit_price = row.price; priceChanged = true; changes.push({ item, oldPrice: old, newPrice: row.price, pct: old > 0 ? ((row.price - old) / old) * 100 : null }); }
       const current = item.manufacturer_item_code;
-      if (row.makerPn && normalizeCode(current) !== normalizeCode(row.makerPn) && (!normalizeCode(current) || isBrandLike(current))) {
+      if (row.makerPn && catalogCodeKey(current) !== catalogCodeKey(row.makerPn) && (!catalogCodeKey(current) || isBrandLike(current))) {
         makerFixes.push({ item, from: current || '', to: row.makerPn });
       }
     }

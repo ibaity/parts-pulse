@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { getCurrencySymbol, formatPrice, formatSar, showsSar } from '@/lib/partConstants';
 import Money from '@/components/Money';
-import { isMissingFromReport } from '@/lib/analysisUtils';
+import { isMissingFromReport, codeIncludes } from '@/lib/analysisUtils';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -183,7 +183,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
       if (filter === 'missing' && !isMissingFromReport(r)) return false;
       if ((filter === 'critical' || filter === 'low') && r.status !== filter) return false;
       if (!q) return true;
-      return (r.item_code || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+      return codeIncludes(r.item_code, q) || (r.description || '').toLowerCase().includes(q);
     });
     const dir = sort.dir === 'asc' ? 1 : -1;
     return rows.sort((a, b) => {
