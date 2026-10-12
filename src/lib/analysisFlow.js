@@ -2,6 +2,7 @@ import { base44 } from '@/api/base44Client';
 import { runAnalysis, normalizeName } from '@/lib/analysisUtils';
 import { fetchAll } from '@/lib/fetchAll';
 import { isSpreadsheet, parseSpreadsheetUrl } from '@/lib/reportParser';
+import { parsePdfReport } from '@/lib/pdfReport';
 
 const CHUNK_SIZE = 500;
 
@@ -24,6 +25,17 @@ const EXTRACT_SCHEMA = {
 };
 
 async function extractFromPdf(fileUrl) {
+  // Known report layouts are read directly (every row); anything else goes to AI extraction.
+  try {
+    const res = await fetch(fileUrl);
+    if (res.ok) {
+      const rows = await parsePdfReport(await res.arrayBuffer());
+      if (rows) return rows;
+    }
+  } catch (err) {
+    console.warn('Direct PDF read failed, using AI extraction', err);
+  }
+
   const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
     file_url: fileUrl,
     json_schema: EXTRACT_SCHEMA,
