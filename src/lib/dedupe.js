@@ -1,8 +1,9 @@
-import { normalizeCode } from '@/lib/analysisUtils';
+import { catalogCodeKey } from '@/lib/analysisUtils';
 
 const time = (r) => new Date(r.updated_date || r.created_date || 0).getTime();
 const newestFirst = (a, b) => time(b) - time(a);
 
+// Codes are compared by part key, so "D0064730", "IMM0064730" and "0064730" are one part.
 // Manufacturer codes are often a brand name ("Werfen") shared by many different parts,
 // so the mediserv code is the part's identity. A manufacturer code is only used for records
 // that have no mediserv code, and only when almost nobody else uses it.
@@ -12,7 +13,7 @@ const MAX_GROUP_SIZE = 5;
 export function manufacturerUsage(masterItems) {
   const usage = new Map();
   for (const m of masterItems) {
-    const code = normalizeCode(m.manufacturer_item_code);
+    const code = catalogCodeKey(m.manufacturer_item_code);
     if (code) usage.set(code, (usage.get(code) || 0) + 1);
   }
   return usage;
@@ -24,14 +25,14 @@ export function groupUnknownItems(unknownItems, masterItems) {
   const usage = manufacturerUsage(masterItems);
   const masterCodes = new Set();
   for (const m of masterItems) {
-    const mediserv = normalizeCode(m.mediserv_item_code);
-    const maker = normalizeCode(m.manufacturer_item_code);
+    const mediserv = catalogCodeKey(m.mediserv_item_code);
+    const maker = catalogCodeKey(m.manufacturer_item_code);
     if (mediserv) masterCodes.add(mediserv);
     else if (maker && usage.get(maker) <= MAX_SHARED_MANUFACTURER) masterCodes.add(maker);
   }
   const groups = new Map();
   for (const u of unknownItems) {
-    const code = normalizeCode(u.item_code);
+    const code = catalogCodeKey(u.item_code);
     if (!code || masterCodes.has(code)) continue;
     if (!groups.has(code)) groups.set(code, []);
     groups.get(code).push(u);
@@ -49,8 +50,8 @@ export function findMasterDuplicates(masterItems) {
   const usage = manufacturerUsage(masterItems);
   const byKey = new Map();
   for (const m of masterItems) {
-    const mediserv = normalizeCode(m.mediserv_item_code);
-    const maker = normalizeCode(m.manufacturer_item_code);
+    const mediserv = catalogCodeKey(m.mediserv_item_code);
+    const maker = catalogCodeKey(m.manufacturer_item_code);
     let key = null;
     if (mediserv) key = `m:${mediserv}`;
     else if (maker && usage.get(maker) <= MAX_SHARED_MANUFACTURER) key = `f:${maker}`;

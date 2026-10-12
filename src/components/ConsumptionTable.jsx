@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { STATUS_STYLES } from '@/lib/consumptionUtils';
+import { codeIncludes } from '@/lib/analysisUtils';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
 
@@ -12,7 +13,7 @@ export default function ConsumptionTable({ data }) {
     if (!search.trim()) return data;
     const q = search.toLowerCase();
     return data.filter(i =>
-      (i.item_code || '').toLowerCase().includes(q) ||
+      codeIncludes(i.item_code, q) ||
       (i.description || '').toLowerCase().includes(q)
     );
   }, [data, search]);

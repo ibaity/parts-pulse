@@ -1,3 +1,5 @@
+import { catalogCodeKey } from '@/lib/analysisUtils';
+
 export function daysBetween(dateA, dateB) {
   const ms = new Date(dateA) - new Date(dateB);
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
@@ -16,7 +18,7 @@ export function calculateConsumption(stockRecords, snapshots) {
   const prevMap = new Map();
 
   for (const r of stockRecords) {
-    const code = (r.item_code || '').trim().toLowerCase();
+    const code = catalogCodeKey(r.item_code);
     if (!code) continue;
     if (r.snapshot_id === latest.id) latestMap.set(code, r);
     if (r.snapshot_id === previous.id) prevMap.set(code, r);

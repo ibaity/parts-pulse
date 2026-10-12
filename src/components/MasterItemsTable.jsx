@@ -10,7 +10,7 @@ import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
 import { Link } from 'react-router-dom';
-import { isEngineerWarehouse } from '@/lib/analysisUtils';
+import { isEngineerWarehouse, catalogCodeKey } from '@/lib/analysisUtils';
 import { findCatalogPart } from '@/lib/catalogLookup';
 import { PART_CATEGORIES, getCurrencySymbol, fuzzyMatch, showsSar, formatSar } from '@/lib/partConstants';
 
@@ -49,9 +49,8 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
   const currencySymbol = getCurrencySymbol(currency);
 
   const getStock = (item) => {
-    const code1 = (item.mediserv_item_code || '').toLowerCase().trim();
-    const code2 = (item.manufacturer_item_code || '').toLowerCase().trim();
-    return stockMap[code1] || stockMap[code2] || null;
+    // stockMap is keyed by part key, so "D0064730" in the report finds "IMM0064730" here.
+    return stockMap[catalogCodeKey(item.mediserv_item_code)] || stockMap[catalogCodeKey(item.manufacturer_item_code)] || null;
   };
 
   const filtered = useMemo(() => {

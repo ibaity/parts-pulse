@@ -16,7 +16,7 @@ import { fuzzyMatch } from '@/lib/partConstants';
 import { useCatalogStock } from '@/hooks/useCatalogStock';
 import { findCatalogPart, searchCatalog, suggestCatalogParts, DEVICE_OPTIONS, splitModels } from '@/lib/catalogLookup';
 import { useCatalogEntries } from '@/hooks/useCatalogEntries';
-import { catalogCodeKey } from '@/lib/analysisUtils';
+import { catalogCodeKey, codeIncludes } from '@/lib/analysisUtils';
 import { base44 } from '@/api/base44Client';
 
 const PAGE_SIZE = 48;
@@ -436,7 +436,7 @@ export default function PartsCatalog() {
     return items.filter(i =>
       (section === ALL || i.section === section) &&
       (deviceFilter === ALL || (deviceFilter === NONE ? !i.device : i.device === deviceFilter)) &&
-      (!q || i.partNo.includes(q) || i.supplierNo.includes(q) ||
+      (!q || codeIncludes(i.partNo, q) || codeIncludes(i.supplierNo, q) ||
         fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
       (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0) &&
       (!needsInfoOnly || !i.name || !(i.image || i.imageUrl) || !i.section || !i.device || !i.models)

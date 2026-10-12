@@ -9,7 +9,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { PART_CATEGORIES, getCurrencySymbol } from '@/lib/partConstants';
 import { fetchAll } from '@/lib/fetchAll';
-import { normalizeCode } from '@/lib/analysisUtils';
+import { catalogCodeKey } from '@/lib/analysisUtils';
 
 export default function MasterItemDialog({ open, onOpenChange, vendorId, currency, onSaved }) {
   const [mediservCode, setMediservCode] = useState('');
@@ -43,13 +43,14 @@ export default function MasterItemDialog({ open, onOpenChange, vendorId, currenc
     try {
       // Don't create a second record for a code that already exists for this vendor.
       // The Mediserv code identifies a part; the manufacturer code is only checked when no Mediserv code is given.
-      const mediservKey = normalizeCode(mediservCode);
-      const makerKey = normalizeCode(manufacturerCode);
+      // "D0064730", "IMM0064730" and "0064730" count as the same code.
+      const mediservKey = catalogCodeKey(mediservCode);
+      const makerKey = catalogCodeKey(manufacturerCode);
       if (mediservKey || makerKey) {
         const existing = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
         const clash = existing.find(m => (mediservKey
-          ? normalizeCode(m.mediserv_item_code) === mediservKey
-          : !normalizeCode(m.mediserv_item_code) && normalizeCode(m.manufacturer_item_code) === makerKey));
+          ? catalogCodeKey(m.mediserv_item_code) === mediservKey
+          : !catalogCodeKey(m.mediserv_item_code) && catalogCodeKey(m.manufacturer_item_code) === makerKey));
         if (clash) {
           toast({
             title: 'Part already exists',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
-import { normalizeCode } from '@/lib/analysisUtils';
+import { normalizeCode, catalogCodeKey } from '@/lib/analysisUtils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -98,15 +98,16 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       });
 
       const existingItems = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
-      // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123").
+      // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123") and the "D" / "IMM" prefix
+      // ("D0064730" = "IMM0064730" = "0064730").
       // The Mediserv code identifies a part. Manufacturer codes are often a shared brand name, so they
       // are only used for rows/records that have no Mediserv code, and only if a single record has that code.
       const lookup = new Map();
       const makerLookup = new Map();
       const makerCount = new Map();
       const remember = (item, mediserv, maker) => {
-        const m = normalizeCode(mediserv);
-        const f = normalizeCode(maker);
+        const m = catalogCodeKey(mediserv);
+        const f = catalogCodeKey(maker);
         if (m && !lookup.has(m)) lookup.set(m, item);
         if (!m && f) {
           makerCount.set(f, (makerCount.get(f) || 0) + 1);
@@ -114,9 +115,9 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
         }
       };
       const findExisting = (mediserv, maker) => {
-        const m = normalizeCode(mediserv);
+        const m = catalogCodeKey(mediserv);
         if (m) return lookup.get(m);
-        const f = normalizeCode(maker);
+        const f = catalogCodeKey(maker);
         return f && makerCount.get(f) === 1 ? makerLookup.get(f) : undefined;
       };
       existingItems.forEach(item => remember(item, item.mediserv_item_code, item.manufacturer_item_code));
