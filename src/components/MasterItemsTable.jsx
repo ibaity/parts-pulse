@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Save, Loader2, Trash2, Columns3, Check } from 'lucide-react';
+import { Search, Save, Loader2, Trash2, Columns3, Check, X } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
 import { Link } from 'react-router-dom';
@@ -24,6 +24,17 @@ const COLUMN_DEFS = [
   { key: 'unit', label: 'Unit' },
 ];
 
+const CATEGORY_VALUES = new Set(PART_CATEGORIES.map(c => c.value));
+
+// Quick filters for parts with missing data. They test the saved values, so a row stays visible while
+// it is being edited and drops out of the filter once the change is saved.
+const MISSING_FILTERS = [
+  { key: 'unit_price', label: 'No price', test: i => !(Number(i.unit_price) > 0) },
+  { key: 'minimum_stock', label: 'Min stock 0', test: i => !(Number(i.minimum_stock) > 0) },
+  { key: 'category', label: 'No category', test: i => !CATEGORY_VALUES.has(i.category) },
+  { key: 'description', label: 'No description', test: i => !(i.description || '').trim() },
+];
+
 export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, currency, sarRate, stockMap = {}, warehouseNames = [] }) {
   // Column order: Total, then main warehouses, then engineer warehouses.
   const orderedWarehouses = useMemo(
@@ -31,6 +42,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
     [warehouseNames]
   );
   const [search, setSearch] = useState('');
+  const [missing, setMissing] = useState([]); // keys of MISSING_FILTERS; a row shows if it lacks any of them
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -53,16 +65,25 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
     return stockMap[catalogCodeKey(item.mediserv_item_code)] || stockMap[catalogCodeKey(item.manufacturer_item_code)] || null;
   };
 
+  const missingCounts = useMemo(
+    () => Object.fromEntries(MISSING_FILTERS.map(f => [f.key, items.filter(f.test).length])),
+    [items]
+  );
+
+  const toggleMissing = (key) => setMissing(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return items;
+    const tests = MISSING_FILTERS.filter(f => missing.includes(f.key)).map(f => f.test);
     return items.filter(i =>
-      fuzzyMatch(search, i.mediserv_item_code) ||
-      fuzzyMatch(search, i.manufacturer_item_code) ||
-      fuzzyMatch(search, i.description) ||
-      fuzzyMatch(search, i.category) ||
-      fuzzyMatch(search, i.unit)
+      (tests.length === 0 || tests.some(t => t(i))) &&
+      (!search.trim() ||
+        fuzzyMatch(search, i.mediserv_item_code) ||
+        fuzzyMatch(search, i.manufacturer_item_code) ||
+        fuzzyMatch(search, i.description) ||
+        fuzzyMatch(search, i.category) ||
+        fuzzyMatch(search, i.unit))
     );
-  }, [items, search]);
+  }, [items, search, missing]);
 
   const { sorted, sortKey, sortDir, toggleSort } = useTableSort(filtered);
 
@@ -174,6 +195,31 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Missing:</span>
+        {MISSING_FILTERS.map(f => {
+          const active = missing.includes(f.key);
+          return (
+            <Button
+              key={f.key}
+              size="sm"
+              variant={active ? 'default' : 'outline'}
+              className="h-7 px-2.5 text-xs"
+              aria-pressed={active}
+              onClick={() => toggleMissing(f.key)}
+            >
+              {f.label}
+              <span className={`ml-1.5 tabular-nums ${active ? 'opacity-80' : 'text-muted-foreground'}`}>{missingCounts[f.key]}</span>
+            </Button>
+          );
+        })}
+        {missing.length > 0 && (
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setMissing([])}>
+            <X className="w-3.5 h-3.5 mr-1" /> Clear
+          </Button>
+        )}
       </div>
 
       <div className="overflow-auto max-h-[500px] border rounded-lg shadow-sm">
@@ -330,7 +376,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="p-8 text-center text-sm text-muted-foreground">No items match your search.</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">No items match your search or filters.</div>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
