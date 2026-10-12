@@ -98,8 +98,8 @@ export default function MasterFileUploader({ vendorId, onUploaded }) {
       });
 
       const existingItems = await fetchAll(base44.entities.MasterItem, { vendor_id: vendorId });
-      // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123") and the "D" / "IMM" prefix
-      // ("D0064730" = "IMM0064730" = "0064730").
+      // Codes are matched ignoring case, spaces, dashes and dots ("AB-123" = "ab123") and the "D" / "DL" / "IMM" prefix
+      // ("D0064730" = "DL0064730" = "IMM0064730" = "0064730").
       // The Mediserv code identifies a part. Manufacturer codes are often a shared brand name, so they
       // are only used for rows/records that have no Mediserv code, and only if a single record has that code.
       const lookup = new Map();
