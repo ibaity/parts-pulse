@@ -7,16 +7,16 @@ export function normalizeCode(code) {
   return normalizeName(code).replace(/[\s\-_./\\]+/g, '');
 }
 
-// Prefixes put in front of the same part number: our system writes "D0064730" / "D IMMU 0064730",
+// Prefixes put in front of the same part number: our system writes "D0064730", "DL0064730" or "D IMMU 0064730",
 // the manufacturer writes "0064730" or "IMM0064730" (also "IMMU" / "IMMUCOR").
-const CODE_PREFIX = /^(?:d(?:imm(?:u(?:cor)?)?)?|imm(?:u(?:cor)?)?)(?=\d)/;
+const CODE_PREFIX = /^(?:d(?:l|imm(?:u(?:cor)?)?)?|imm(?:u(?:cor)?)?)(?=\d)/;
 
 // Normalized code without the "D" / "IMM" prefix, leading zeros kept ("IMM-0064730" -> "0064730").
 export function stripCodePrefix(code) {
   return normalizeCode(code).replace(CODE_PREFIX, '');
 }
 
-// Part identity key: "D0064730", "D IMMU 0064730", "IMM0064730", "D-IMMU-64730" and "64730" are all the same part,
+// Part identity key: "D0064730", "DL0064730", "D IMMU 0064730", "IMM0064730", "D-IMMU-64730" and "64730" are all the same part,
 // so the prefix and leading zeros are ignored and all of these link to catalog part 0064730.
 export function catalogCodeKey(code) {
   return stripCodePrefix(code).replace(/^0+(?=.)/, '');
@@ -29,13 +29,13 @@ export function codeIncludes(target, query) {
 }
 
 // Part numbers written inside a name/description, e.g. "D IMMU 0065160 Wash Station Pump" -> 65160.
-// Picks the code after a "D IMMU" / "IMM" prefix plus any standalone 7–8 digit number, optionally "D"/"IMM"-prefixed.
+// Picks the code after a "D IMMU" / "IMM" prefix plus any standalone 7–8 digit number, optionally "D"/"DL"/"IMM"-prefixed.
 export function catalogCodesInText(text) {
   const raw = (text || '').toString();
   const keys = new Set();
   const prefixed = raw.match(/^\s*(?:d[\s\-_.]*)?imm(?:u(?:cor)?)?[\s\-_.:#]*([a-z0-9][a-z0-9\-_.]*)/i);
   if (prefixed) keys.add(catalogCodeKey(prefixed[1]));
-  for (const n of raw.match(/(?<![\w-])(?:d|imm(?:u(?:cor)?)?)?[\s\-]?\d{7,8}(?![\w-])/gi) || []) keys.add(catalogCodeKey(n));
+  for (const n of raw.match(/(?<![\w-])(?:dl?|imm(?:u(?:cor)?)?)?[\s\-]?\d{7,8}(?![\w-])/gi) || []) keys.add(catalogCodeKey(n));
   keys.delete('');
   return [...keys];
 }
