@@ -136,8 +136,9 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   const index = buildMasterIndex(masterItems);
   const matchedMasterIds = new Set();
   const results = [];
+  const reported = new Map(); // part key -> { index in results, master item } for every matched report row
 
-  for (const { code, warehouses } of itemMap.values()) {
+  for (const [key, { code, warehouses }] of itemMap) {
     let currentStock = 0;
     const warehouseBreakdown = {};
     for (const [whName, qty] of warehouses) {
@@ -163,6 +164,7 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
       continue;
     }
     matchedMasterIds.add(masterItem.id);
+    reported.set(key, { index: results.length, masterItem });
     results.push(stockResult(code, masterItem, matchedVia, currentStock, warehouseBreakdown));
   }
 
@@ -170,6 +172,16 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   for (const mi of masterItems) {
     if (matchedMasterIds.has(mi.id)) continue;
     if ((Number(mi.minimum_stock) || 0) <= 0) continue;
+    // The same part recorded twice in the master list (e.g. "D0066806" and "IMM0066806"): its stock is already
+    // counted on the other record, so it is not "missing". The higher minimum stock of the two applies.
+    const twin = reported.get(catalogCodeKey(mi.mediserv_item_code)) || reported.get(catalogCodeKey(mi.manufacturer_item_code));
+    if (twin) {
+      const r = results[twin.index];
+      if (Number(mi.minimum_stock) > r.minimum_stock) {
+        results[twin.index] = stockResult(r.item_code, { ...twin.masterItem, minimum_stock: mi.minimum_stock }, r.matched_via, r.current_stock, r.warehouse_breakdown);
+      }
+      continue;
+    }
     const code = mi.mediserv_item_code || mi.manufacturer_item_code;
     if (!code) continue;
     results.push(stockResult(code, mi, mi.mediserv_item_code ? 'mediserv_code' : 'manufacturer_code', 0, {}));
