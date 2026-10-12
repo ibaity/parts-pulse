@@ -23,6 +23,8 @@ const PAGE_SIZE = 48;
 const ALL = '__all__';
 const STOCK_TAB = '__stock__';
 const NONE = '__none__';
+// Every built-in part with its device, for searching across all devices at once.
+const ALL_PARTS = catalog.flatMap(g => g.items.map(p => ({ ...p, device: g.id })));
 const imgSrc = (part) => part.imageUrl || `/catalog/img/${part.image}`;
 
 function PartImage({ part, className = '' }) {
@@ -45,7 +47,7 @@ function PartImage({ part, className = '' }) {
   );
 }
 
-function PartCard({ part, onOpen }) {
+function PartCard({ part, onOpen, showDevice }) {
   return (
     <button
       onClick={() => onOpen(part)}
@@ -56,6 +58,7 @@ function PartCard({ part, onOpen }) {
         <p className="font-mono text-xs text-accent font-semibold">{part.partNo || '—'}</p>
         <p className="text-sm font-medium leading-snug line-clamp-2">{part.name}</p>
         <p className="text-xs text-muted-foreground line-clamp-1">{part.models || part.section}</p>
+        {showDevice && part.device && <p className="text-[11px] text-muted-foreground line-clamp-1">{deviceName(part.device)}</p>}
         {part.stockTotal != null && (
           <div className="flex flex-wrap gap-1">
             <Badge variant="secondary">{part.stockTotal} in stock</Badge>
@@ -386,6 +389,8 @@ export default function PartsCatalog() {
 
   const entries = useCatalogEntries();
   const stockTab = group === STOCK_TAB;
+  // A search looks through every device and section, not just the open tab.
+  const allDevices = !!search.trim() && !stockTab;
   const { lookup, isLoading: stockLoading, error: stockError, masters } = useCatalogStock(inStockOnly || stockTab);
 
   // Master items currently in stock; falls back to master data when the built-in catalog has no entry.
@@ -410,8 +415,8 @@ export default function PartsCatalog() {
   }, [masters, lookup]);
 
   const baseItems = useMemo(
-    () => (stockTab ? stockItems : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
-    [stockTab, stockItems, group]
+    () => (stockTab ? stockItems : allDevices ? ALL_PARTS : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
+    [stockTab, allDevices, stockItems, group]
   );
   const items = useMemo(() => baseItems.map(p => {
     const e = entries.find(p.partNo, p.supplierNo);
@@ -472,7 +477,12 @@ export default function PartsCatalog() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
-            onChange={e => { setSearch(e.target.value); setLimit(PAGE_SIZE); }}
+            onChange={e => {
+              // Starting a search clears the device/section filters so it covers every device and section.
+              if (!search.trim() && e.target.value.trim()) { setSection(ALL); setDeviceFilter(ALL); }
+              setSearch(e.target.value);
+              setLimit(PAGE_SIZE);
+            }}
             placeholder="Search part number, name, description or model…"
             className="pl-9"
           />
@@ -517,14 +527,14 @@ export default function PartsCatalog() {
       )}
 
       <p className="text-sm text-muted-foreground">
-        {(inStockOnly || stockTab) && stockLoading ? 'Checking stock…' : `${filtered.length} part${filtered.length === 1 ? '' : 's'}`}
+        {(inStockOnly || stockTab) && stockLoading ? 'Checking stock…' : `${filtered.length} part${filtered.length === 1 ? '' : 's'}${allDevices ? ' across all devices' : ''}`}
       </p>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">No parts match your search.</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
-          {filtered.slice(0, limit).map((p, idx) => <PartCard key={`${p.partNo}-${idx}`} part={p} onOpen={setSelected} />)}
+          {filtered.slice(0, limit).map((p, idx) => <PartCard key={`${p.partNo}-${idx}`} part={p} onOpen={setSelected} showDevice={allDevices || stockTab} />)}
         </div>
       )}
 
