@@ -1,0 +1,24 @@
+{
+  "name": "NonStockItem",
+  "type": "object",
+  "properties": {
+    "item_code": { "type": "string", "title": "Item Code" },
+    "description": { "type": "string", "title": "Description" },
+    "quantity": { "type": "number", "title": "Quantity", "default": 0 },
+    "unit": { "type": "string", "title": "Unit", "default": "" },
+    "city": {
+      "type": "string",
+      "title": "City",
+      "enum": ["Riyadh", "Jeddah"]
+    },
+    "vendor_id": { "type": "string", "title": "Vendor", "relation": "Vendor" },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["available", "used"],
+      "default": "available"
+    },
+    "notes": { "type": "string", "title": "Notes" }
+  },
+  "required": ["item_code", "city"]
+}

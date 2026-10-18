@@ -19,6 +19,7 @@ const DeviceModels = lazy(() => import('@/pages/DeviceModels'));
 const InventoryTracking = lazy(() => import('@/pages/InventoryTracking'));
 const Consumption = lazy(() => import('@/pages/Consumption'));
 const PartsCatalog = lazy(() => import('@/pages/PartsCatalog'));
+const NonStockItems = lazy(() => import('@/pages/NonStockItems'));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center py-20">
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
         <Route path="/inventory-tracking" element={<InventoryTracking />} />
         <Route path="/consumption" element={<Consumption />} />
         <Route path="/parts-catalog" element={<PartsCatalog />} />
+        <Route path="/non-stock" element={<NonStockItems />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
