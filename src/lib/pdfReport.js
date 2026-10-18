@@ -7,6 +7,38 @@
 const ROW = /^(\S+)\s+.*?\s(-?[\d,]+\.\d{3,})\s+(\S*?)\s*(\d{4}-\d{2}-\d{2})?\s+(\S+)\s+(.*)$/;
 const ITEM_CODE = /^[a-z]{1,6}\d[\w/.-]*$/i;
 
+// Pipe-delimited export, e.g.:
+//   D0002223 |Hemantigen |VIL-Vial |1.000000 |25512 |2026-08-28 |W101  -Riyadh (M.Serv)
+//   item | description | inv unit | on hand | lot | expiry | warehouse code - warehouse name
+const PIPE_ITEM = /^[a-z]{1,6}\d[\w/.-]*$/i;
+
+function parsePipeLine(line) {
+  const parts = line.split('|').map((p) => p.trim());
+  if (parts.length < 6) return null;
+  const item_code = parts[0];
+  if (!PIPE_ITEM.test(item_code)) return null;
+  const quantity = Number(parts[3].replace(/,/g, '')) || 0;
+  const whField = parts[parts.length - 1];
+  const wm = whField.match(/^(\S+)\s*-\s*(.*)$/);
+  return {
+    item_code,
+    quantity,
+    warehouse: wm ? wm[1] : whField,
+    warehouse_name: wm ? wm[2].trim() : '',
+  };
+}
+
+function parseSpaceLine(line) {
+  const m = line.match(ROW);
+  if (!m) return null;
+  return {
+    item_code: m[1],
+    quantity: Number(m[2].replace(/,/g, '')) || 0,
+    warehouse: m[5],
+    warehouse_name: m[6].trim(),
+  };
+}
+
 async function loadPdfJs() {
   const [pdfjs, worker] = await Promise.all([
     import('pdfjs-dist'),
@@ -41,17 +73,14 @@ async function pdfLines(data) {
 // Parses an array of text lines into report rows using the known report layout.
 // Returns null when the lines don't match the layout (the caller then uses AI extraction).
 function parseLines(lines) {
-  const candidates = lines.filter(l => ITEM_CODE.test(l.split(/\s+/)[0]));
+  const candidates = lines.filter((l) => {
+    const first = l.includes('|') ? l.slice(0, l.indexOf('|')).trim() : l.split(/\s+/)[0];
+    return ITEM_CODE.test(first);
+  });
   const rows = [];
   for (const line of candidates) {
-    const m = line.match(ROW);
-    if (!m) continue;
-    rows.push({
-      item_code: m[1],
-      quantity: Number(m[2].replace(/,/g, '')) || 0,
-      warehouse: m[5],
-      warehouse_name: m[6].trim(),
-    });
+    const parsed = line.includes('|') ? parsePipeLine(line) : parseSpaceLine(line);
+    if (parsed) rows.push(parsed);
   }
   // Only trust the layout when (nearly) every item line was understood.
   if (rows.length === 0 || rows.length < candidates.length * 0.9) return null;
