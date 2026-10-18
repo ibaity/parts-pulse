@@ -55,12 +55,21 @@ function extractFromPdf(fileUrl) {
   return extractWithLayout(fileUrl, (buf) => parsePdfReport(buf));
 }
 
-function extractFromTxt(fileUrl) {
-  return extractWithLayout(fileUrl, (buf) => parseTxtReport(new TextDecoder().decode(buf)));
+// Reads a TXT report entirely in-browser (no upload): try the known line layout first,
+// then fall back to AI extraction on the raw text.
+async function extractFromTxtText(text) {
+  const direct = parseTxtReport(text);
+  if (direct) return direct;
+
+  const llm = await base44.integrations.Core.InvokeLLM({
+    prompt: `Extract stock report items from the following text. Return an array of objects with item_code, warehouse, warehouse_name and quantity.\n\n${text}`,
+    response_json_schema: EXTRACT_SCHEMA,
+  });
+  return Array.isArray(llm) ? llm : llm?.items || [];
 }
 
 // reportItems: rows already parsed in the browser (Excel/CSV). When omitted, the stored file is read.
-export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, onStep }) {
+export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, reportText, onStep }) {
   const spreadsheet = isSpreadsheet(pdfFileName);
   const txt = isTextFile(pdfFileName);
   onStep?.(spreadsheet || txt ? 'Reading report...' : 'Extracting data from PDF (this may take a moment)...');
@@ -74,10 +83,10 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, r
     }),
     reportItems
       ? Promise.resolve(reportItems)
-      : spreadsheet
-        ? parseSpreadsheetUrl(pdfFileUrl)
-        : txt
-          ? extractFromTxt(pdfFileUrl)
+      : reportText != null
+        ? extractFromTxtText(reportText)
+        : spreadsheet
+          ? parseSpreadsheetUrl(pdfFileUrl)
           : extractFromPdf(pdfFileUrl),
   ]);
 

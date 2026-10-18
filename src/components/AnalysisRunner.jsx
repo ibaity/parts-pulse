@@ -7,6 +7,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { Upload, FileText, FileSpreadsheet, Loader2, X, Play, CheckCircle2 } from 'lucide-react';
 import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { REPORT_FIELDS, detectColumns, isSpreadsheet, readSheet, rowsToReportItems } from '@/lib/reportParser';
+import { parseTxtReport } from '@/lib/pdfReport';
+
+const isTxt = (name) => /\.txt$/i.test(name || '');
 
 const ACCEPT = '.pdf,.xlsx,.xls,.csv,.txt';
 const NONE = '__none__';
@@ -14,6 +17,7 @@ const NONE = '__none__';
 export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   const [file, setFile] = useState(null);
   const [sheet, setSheet] = useState(null); // { rows, columns } for Excel/CSV
+  const [txtReport, setTxtReport] = useState(null); // parsed rows for TXT
   const [mapping, setMapping] = useState({});
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -24,6 +28,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   const reset = () => {
     setFile(null);
     setSheet(null);
+    setTxtReport(null);
     setMapping({});
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -36,6 +41,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
     }
     setFile(f);
     setSheet(null);
+    setTxtReport(null);
     setMapping({});
     if (isSpreadsheet(f.name)) {
       try {
@@ -45,6 +51,15 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
         setMapping(detectColumns(parsed.columns));
       } catch {
         toast({ title: 'Error', description: 'Could not read this file. Check that it has a header row.', variant: 'destructive' });
+        reset();
+      }
+    } else if (isTxt(f.name)) {
+      try {
+        const text = await f.text();
+        const parsed = parseTxtReport(text);
+        setTxtReport(parsed || []);
+      } catch {
+        toast({ title: 'Error', description: 'Could not read this TXT file.', variant: 'destructive' });
         reset();
       }
     }
@@ -57,19 +72,25 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   };
 
   const mappingReady = !sheet || (mapping.item_code && mapping.quantity);
+  const txtReady = !txtReport || txtReport.length > 0;
 
   const handleAnalyze = async () => {
     if (!file || !mappingReady) return;
     setProcessing(true);
     try {
-      setStep('Uploading report...');
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      let fileUrl = '';
+      // TXT is parsed in the browser (no upload); other types are uploaded for storage/AI extraction.
+      if (!isTxt(file.name)) {
+        setStep('Uploading report...');
+        fileUrl = (await base44.integrations.Core.UploadFile({ file })).file_url;
+      }
 
       const { results, summary, enabledWarehouseCount } = await executeAnalysisFlow({
         vendorId,
-        pdfFileUrl: file_url,
+        pdfFileUrl: fileUrl,
         pdfFileName: file.name,
         reportItems: sheet ? rowsToReportItems(sheet.rows, mapping) : undefined,
+        reportText: isTxt(file.name) ? await file.text() : undefined,
         onStep: setStep,
       });
 
@@ -179,7 +200,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
           )}
 
           <div className="flex justify-end">
-            <Button onClick={handleAnalyze} disabled={!mappingReady} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button onClick={handleAnalyze} disabled={!mappingReady || !txtReady} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               <Play className="w-4 h-4 mr-2" />Run Analysis
             </Button>
           </div>
