@@ -8,7 +8,7 @@ import { Upload, FileText, FileSpreadsheet, Loader2, X, Play, CheckCircle2 } fro
 import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { REPORT_FIELDS, detectColumns, isSpreadsheet, readSheet, rowsToReportItems } from '@/lib/reportParser';
 
-const ACCEPT = '.pdf,.xlsx,.xls,.csv';
+const ACCEPT = '.pdf,.xlsx,.xls,.csv,.txt';
 const NONE = '__none__';
 
 export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
@@ -30,8 +30,8 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
 
   const selectFile = async (f) => {
     if (!f) return;
-    if (!/\.(pdf|xlsx|xls|csv)$/i.test(f.name)) {
-      toast({ title: 'Unsupported file', description: 'Upload a PDF, Excel or CSV report.', variant: 'destructive' });
+    if (!/\.(pdf|xlsx|xls|csv|txt)$/i.test(f.name)) {
+      toast({ title: 'Unsupported file', description: 'Upload a PDF, Excel, CSV or TXT report.', variant: 'destructive' });
       return;
     }
     setFile(f);
@@ -132,7 +132,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
           <div className="text-center">
             <p className="text-sm font-semibold">Drop the stock report here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Excel / CSV (fast &amp; exact) or PDF (read by AI, slower)
+              Excel / CSV / TXT (fast &amp; exact) or PDF (read by AI, slower)
             </p>
           </div>
         </label>
@@ -143,7 +143,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{file.name}</p>
               <p className="text-xs text-muted-foreground">
-                {sheet ? `${sheet.rows.length.toLocaleString()} rows detected` : 'PDF — data will be extracted by AI'}
+                {sheet ? `${sheet.rows.length.toLocaleString()} rows detected` : file.name.match(/\.txt$/i) ? 'TXT — data will be read directly' : 'PDF — data will be extracted by AI'}
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={reset} aria-label="Remove file">

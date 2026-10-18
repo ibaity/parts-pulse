@@ -38,9 +38,9 @@ async function pdfLines(data) {
   return lines;
 }
 
-// Returns report rows, or null when the PDF does not have this layout (the caller then uses AI extraction).
-export async function parsePdfReport(data) {
-  const lines = await pdfLines(data);
+// Parses an array of text lines into report rows using the known report layout.
+// Returns null when the lines don't match the layout (the caller then uses AI extraction).
+function parseLines(lines) {
   const candidates = lines.filter(l => ITEM_CODE.test(l.split(/\s+/)[0]));
   const rows = [];
   for (const line of candidates) {
@@ -56,4 +56,14 @@ export async function parsePdfReport(data) {
   // Only trust the layout when (nearly) every item line was understood.
   if (rows.length === 0 || rows.length < candidates.length * 0.9) return null;
   return rows;
+}
+
+// Returns report rows, or null when the PDF does not have this layout (the caller then uses AI extraction).
+export async function parsePdfReport(data) {
+  return parseLines(await pdfLines(data));
+}
+
+// Parses a plain-text stock report (same line layout as the PDF report).
+export function parseTxtReport(text) {
+  return parseLines(text.split(/\r?\n/));
 }

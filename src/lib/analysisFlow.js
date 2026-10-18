@@ -2,7 +2,10 @@ import { base44 } from '@/api/base44Client';
 import { runAnalysis, normalizeName } from '@/lib/analysisUtils';
 import { fetchAll } from '@/lib/fetchAll';
 import { isSpreadsheet, parseSpreadsheetUrl } from '@/lib/reportParser';
-import { parsePdfReport } from '@/lib/pdfReport';
+import { parsePdfReport, parseTxtReport } from '@/lib/pdfReport';
+
+const TEXT_EXT = /\.(txt)$/i;
+const isTextFile = (name) => TEXT_EXT.test(name || '');
 
 const CHUNK_SIZE = 500;
 
@@ -24,16 +27,16 @@ const EXTRACT_SCHEMA = {
   },
 };
 
-async function extractFromPdf(fileUrl) {
-  // Known report layouts are read directly (every row); anything else goes to AI extraction.
+// Known report layouts are read directly (every row); anything else goes to AI extraction.
+async function extractWithLayout(fileUrl, readDirectly) {
   try {
     const res = await fetch(fileUrl);
     if (res.ok) {
-      const rows = await parsePdfReport(await res.arrayBuffer());
+      const rows = readDirectly(await res.arrayBuffer());
       if (rows) return rows;
     }
   } catch (err) {
-    console.warn('Direct PDF read failed, using AI extraction', err);
+    console.warn('Direct read failed, using AI extraction', err);
   }
 
   const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
@@ -41,17 +44,26 @@ async function extractFromPdf(fileUrl) {
     json_schema: EXTRACT_SCHEMA,
   });
   if (extractResult.status === 'error') {
-    throw new Error(extractResult.details || 'PDF extraction failed');
+    throw new Error(extractResult.details || 'Report extraction failed');
   }
   return Array.isArray(extractResult.output)
     ? extractResult.output
     : extractResult.output?.items || [];
 }
 
+function extractFromPdf(fileUrl) {
+  return extractWithLayout(fileUrl, (buf) => parsePdfReport(buf));
+}
+
+function extractFromTxt(fileUrl) {
+  return extractWithLayout(fileUrl, (buf) => parseTxtReport(new TextDecoder().decode(buf)));
+}
+
 // reportItems: rows already parsed in the browser (Excel/CSV). When omitted, the stored file is read.
 export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, onStep }) {
   const spreadsheet = isSpreadsheet(pdfFileName);
-  onStep?.(spreadsheet ? 'Reading report...' : 'Extracting data from PDF (this may take a moment)...');
+  const txt = isTextFile(pdfFileName);
+  onStep?.(spreadsheet || txt ? 'Reading report...' : 'Extracting data from PDF (this may take a moment)...');
   // Create the run record and read the report in parallel — they don't depend on each other.
   const [run, pdfItems] = await Promise.all([
     base44.entities.AnalysisRun.create({
@@ -62,7 +74,11 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, r
     }),
     reportItems
       ? Promise.resolve(reportItems)
-      : spreadsheet ? parseSpreadsheetUrl(pdfFileUrl) : extractFromPdf(pdfFileUrl),
+      : spreadsheet
+        ? parseSpreadsheetUrl(pdfFileUrl)
+        : txt
+          ? extractFromTxt(pdfFileUrl)
+          : extractFromPdf(pdfFileUrl),
   ]);
 
   try {
