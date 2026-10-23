@@ -7,7 +7,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { Upload, FileText, FileSpreadsheet, Loader2, X, Play, CheckCircle2 } from 'lucide-react';
 import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { REPORT_FIELDS, detectColumns, isSpreadsheet, readSheet, rowsToReportItems } from '@/lib/reportParser';
-import { parseTxtReport } from '@/lib/pdfReport';
+import { parsePdfReport, parseTxtReport } from '@/lib/pdfReport';
+import { useVendors } from '@/hooks/useVendors';
+import ReportPreview from '@/components/ReportPreview';
 
 const isTxt = (name) => /\.txt$/i.test(name || '');
 
@@ -17,18 +19,22 @@ const NONE = '__none__';
 export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   const [file, setFile] = useState(null);
   const [sheet, setSheet] = useState(null); // { rows, columns } for Excel/CSV
-  const [txtReport, setTxtReport] = useState(null); // parsed rows for TXT
+  // TXT/PDF read in the browser: { items, meta } in the company report layout, or { invalid: true } when not.
+  const [report, setReport] = useState(null);
+  const [reading, setReading] = useState(false);
   const [mapping, setMapping] = useState({});
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [step, setStep] = useState('');
   const inputRef = useRef(null);
   const { toast } = useToast();
+  const { vendors } = useVendors();
+  const vendor = vendors.find(v => v.id === vendorId);
 
   const reset = () => {
     setFile(null);
     setSheet(null);
-    setTxtReport(null);
+    setReport(null);
     setMapping({});
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -41,7 +47,7 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
     }
     setFile(f);
     setSheet(null);
-    setTxtReport(null);
+    setReport(null);
     setMapping({});
     if (isSpreadsheet(f.name)) {
       try {
@@ -53,15 +59,20 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
         toast({ title: 'Error', description: 'Could not read this file. Check that it has a header row.', variant: 'destructive' });
         reset();
       }
-    } else if (isTxt(f.name)) {
+    } else {
+      setReading(true);
       try {
-        const text = await f.text();
-        const parsed = parseTxtReport(text);
-        setTxtReport(parsed || []);
+        const parsed = isTxt(f.name) ? parseTxtReport(await f.text()) : await parsePdfReport(await f.arrayBuffer());
+        setReport(parsed || { invalid: true });
       } catch {
-        toast({ title: 'Error', description: 'Could not read this TXT file.', variant: 'destructive' });
-        reset();
+        if (isTxt(f.name)) {
+          toast({ title: 'Error', description: 'Could not read this TXT file.', variant: 'destructive' });
+          reset();
+        } else {
+          setReport({ invalid: true });
+        }
       }
+      setReading(false);
     }
   };
 
@@ -72,25 +83,34 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
   };
 
   const mappingReady = !sheet || (mapping.item_code && mapping.quantity);
-  const txtReady = !txtReport || txtReport.length > 0;
+  // A TXT report must have the company layout; any other PDF is still read by AI.
+  const txtInvalid = !!file && isTxt(file.name) && !!report?.invalid;
+  const reportReady = !reading && !txtInvalid;
+  const reportItems = sheet
+    ? (mappingReady ? rowsToReportItems(sheet.rows, mapping) : null)
+    : report?.items || null;
 
   const handleAnalyze = async () => {
-    if (!file || !mappingReady) return;
+    if (!file || !mappingReady || !reportReady) return;
     setProcessing(true);
     try {
+      // The file is stored so the run can be re-run later. A TXT is already read, so it is analyzed
+      // even if storing it fails (only Re-run is then unavailable).
+      setStep('Uploading report...');
       let fileUrl = '';
-      // TXT is parsed in the browser (no upload); other types are uploaded for storage/AI extraction.
-      if (!isTxt(file.name)) {
-        setStep('Uploading report...');
+      try {
         fileUrl = (await base44.integrations.Core.UploadFile({ file })).file_url;
+      } catch (err) {
+        if (!isTxt(file.name)) throw err;
+        console.warn('Could not store the TXT report', err);
       }
 
-      const { results, summary, enabledWarehouseCount } = await executeAnalysisFlow({
+      const { results, summary, enabledWarehouseCount, newEngineerWarehouses } = await executeAnalysisFlow({
         vendorId,
         pdfFileUrl: fileUrl,
         pdfFileName: file.name,
-        reportItems: sheet ? rowsToReportItems(sheet.rows, mapping) : undefined,
-        reportText: isTxt(file.name) ? await file.text() : undefined,
+        reportItems: reportItems || undefined,
+        reportMeta: report?.meta,
         onStep: setStep,
       });
 
@@ -103,7 +123,10 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
 
       toast({
         title: 'Analysis Complete',
-        description: `${summary.total_items} items · ${summary.items_to_purchase} to purchase · ${summary.unknown_items} unknown`,
+        description: `${summary.total_items} items · ${summary.items_to_purchase} to purchase · ${summary.unknown_items} unknown`
+          + (newEngineerWarehouses > 0
+            ? ` · ${newEngineerWarehouses} new engineer warehouse${newEngineerWarehouses > 1 ? 's' : ''} added as not counted (see Warehouses)`
+            : ''),
       });
 
       onAnalysisComplete(results);
@@ -153,18 +176,26 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
           <div className="text-center">
             <p className="text-sm font-semibold">Drop the stock report here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Excel / CSV / TXT (fast &amp; exact) or PDF (read by AI, slower)
+              TXT or PDF from the company system, or Excel / CSV — read directly, every row
             </p>
           </div>
         </label>
       ) : (
         <>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/60">
-            <FileIcon className={`w-5 h-5 shrink-0 ${sheet ? 'text-success' : 'text-critical'}`} />
+            <FileIcon className={`w-5 h-5 shrink-0 ${sheet || report?.items ? 'text-success' : 'text-critical'}`} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{file.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {sheet ? `${sheet.rows.length.toLocaleString()} rows detected` : file.name.match(/\.txt$/i) ? 'TXT — data will be read directly' : 'PDF — data will be extracted by AI'}
+              <p className={`text-xs ${txtInvalid ? 'text-critical' : 'text-muted-foreground'}`}>
+                {sheet
+                  ? `${sheet.rows.length.toLocaleString()} rows detected`
+                  : reading
+                    ? 'Reading report...'
+                    : report?.items
+                      ? 'MEDISERV stock report — read directly'
+                      : txtInvalid
+                        ? 'This TXT file is not in the MEDISERV stock report layout (Item | Description | Inv.Unit | On hand | Lot | Expiry | Warehouse).'
+                        : 'Unknown PDF layout — data will be extracted by AI (slower, may miss rows)'}
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={reset} aria-label="Remove file">
@@ -199,8 +230,12 @@ export default function AnalysisRunner({ vendorId, onAnalysisComplete }) {
             </div>
           )}
 
+          {reportItems && reportItems.length > 0 && (
+            <ReportPreview items={reportItems} meta={report?.meta} vendor={vendor} />
+          )}
+
           <div className="flex justify-end">
-            <Button onClick={handleAnalyze} disabled={!mappingReady || !txtReady} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button onClick={handleAnalyze} disabled={!mappingReady || !reportReady} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               <Play className="w-4 h-4 mr-2" />Run Analysis
             </Button>
           </div>

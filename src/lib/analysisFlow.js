@@ -1,5 +1,5 @@
 import { base44 } from '@/api/base44Client';
-import { runAnalysis, normalizeName } from '@/lib/analysisUtils';
+import { runAnalysis, normalizeName, isEngineerWarehouse } from '@/lib/analysisUtils';
 import { fetchAll } from '@/lib/fetchAll';
 import { isSpreadsheet, parseSpreadsheetUrl } from '@/lib/reportParser';
 import { parsePdfReport, parseTxtReport } from '@/lib/pdfReport';
@@ -27,13 +27,14 @@ const EXTRACT_SCHEMA = {
   },
 };
 
-// Known report layouts are read directly (every row); anything else goes to AI extraction.
-async function extractWithLayout(fileUrl, readDirectly) {
+// The company report layout is read directly (every row); any other PDF goes to AI extraction.
+// Returns { items, meta } (meta is null when the report header is unknown).
+async function extractFromPdf(fileUrl) {
   try {
     const res = await fetch(fileUrl);
     if (res.ok) {
-      const rows = readDirectly(await res.arrayBuffer());
-      if (rows) return rows;
+      const report = await parsePdfReport(await res.arrayBuffer());
+      if (report) return report;
     }
   } catch (err) {
     console.warn('Direct read failed, using AI extraction', err);
@@ -46,35 +47,35 @@ async function extractWithLayout(fileUrl, readDirectly) {
   if (extractResult.status === 'error') {
     throw new Error(extractResult.details || 'Report extraction failed');
   }
-  return Array.isArray(extractResult.output)
+  const items = Array.isArray(extractResult.output)
     ? extractResult.output
     : extractResult.output?.items || [];
+  return { items, meta: null };
 }
 
-function extractFromPdf(fileUrl) {
-  return extractWithLayout(fileUrl, (buf) => parsePdfReport(buf));
+// TXT reports must have the company report layout; AI guessing at plain text could invent quantities.
+async function extractFromTxtUrl(fileUrl) {
+  if (!fileUrl) throw new Error('The TXT file of this run was not saved. Upload the report again to analyze it.');
+  const res = await fetch(fileUrl);
+  if (!res.ok) throw new Error('Could not download the report file');
+  const report = parseTxtReport(await res.text());
+  if (!report) throw new Error('This TXT file is not in the MEDISERV stock report layout.');
+  return report;
 }
 
-// Reads a TXT report entirely in-browser (no upload): try the known line layout first,
-// then fall back to AI extraction on the raw text.
-async function extractFromTxtText(text) {
-  const direct = parseTxtReport(text);
-  if (direct) return direct;
-
-  const llm = await base44.integrations.Core.InvokeLLM({
-    prompt: `Extract stock report items from the following text. Return an array of objects with item_code, warehouse, warehouse_name and quantity.\n\n${text}`,
-    response_json_schema: EXTRACT_SCHEMA,
-  });
-  return Array.isArray(llm) ? llm : llm?.items || [];
+async function readStoredReport(fileUrl, fileName) {
+  if (isTextFile(fileName)) return extractFromTxtUrl(fileUrl);
+  if (isSpreadsheet(fileName)) return { items: await parseSpreadsheetUrl(fileUrl), meta: null };
+  return extractFromPdf(fileUrl);
 }
 
-// reportItems: rows already parsed in the browser (Excel/CSV). When omitted, the stored file is read.
-export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, reportText, onStep }) {
-  const spreadsheet = isSpreadsheet(pdfFileName);
-  const txt = isTextFile(pdfFileName);
-  onStep?.(spreadsheet || txt ? 'Reading report...' : 'Extracting data from PDF (this may take a moment)...');
+// reportItems: rows already parsed in the browser (Excel/CSV/TXT/PDF), with reportMeta from the report header.
+// When omitted (Re-run), the stored file is read again.
+export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, reportItems, reportMeta, onStep }) {
+  onStep?.('Reading report...');
   // Create the run record and read the report in parallel — they don't depend on each other.
-  const [run, pdfItems] = await Promise.all([
+  // A report that can't be read still marks its run as failed.
+  const [runResult, reportResult] = await Promise.allSettled([
     base44.entities.AnalysisRun.create({
       vendor_id: vendorId,
       pdf_file_url: pdfFileUrl,
@@ -82,23 +83,23 @@ export async function executeAnalysisFlow({ vendorId, pdfFileUrl, pdfFileName, r
       status: 'processing',
     }),
     reportItems
-      ? Promise.resolve(reportItems)
-      : reportText != null
-        ? extractFromTxtText(reportText)
-        : spreadsheet
-          ? parseSpreadsheetUrl(pdfFileUrl)
-          : extractFromPdf(pdfFileUrl),
+      ? Promise.resolve({ items: reportItems, meta: reportMeta || null })
+      : readStoredReport(pdfFileUrl, pdfFileName),
   ]);
+  if (runResult.status === 'rejected') throw runResult.reason;
+  const run = runResult.value;
 
   try {
-    return await analyzeAndSave({ run, vendorId, pdfItems, onStep });
+    if (reportResult.status === 'rejected') throw reportResult.reason;
+    const { items, meta } = reportResult.value;
+    return await analyzeAndSave({ run, vendorId, pdfItems: items, meta, onStep });
   } catch (err) {
     await base44.entities.AnalysisRun.update(run.id, { status: 'failed' }).catch(() => {});
     throw err;
   }
 }
 
-async function analyzeAndSave({ run, vendorId, pdfItems, onStep }) {
+async function analyzeAndSave({ run, vendorId, pdfItems, meta, onStep }) {
   if (pdfItems.length === 0) {
     throw new Error('No items found in the report. Make sure it contains item codes and quantities.');
   }
@@ -109,18 +110,9 @@ async function analyzeAndSave({ run, vendorId, pdfItems, onStep }) {
     base44.entities.Warehouse.list('-created_date', 200),
   ]);
 
-  // Warehouses seen in the report but not defined yet are registered as enabled,
-  // so count them as enabled in this run too (otherwise the first run undercounts stock).
-  const known = new Set();
-  warehouses.forEach(w => {
-    if (w.name) known.add(normalizeName(w.name));
-    if (w.code) known.add(normalizeName(w.code));
-  });
-  const newWhNames = [...new Set(
-    pdfItems.map(r => (r.warehouse ?? '').toString().trim()).filter(Boolean)
-  )].filter(n => !known.has(normalizeName(n)));
-  const newWarehouses = newWhNames.map(name => ({ name, enabled: true, important: false, visible: true }));
-  const enabledWarehouses = [...warehouses.filter(w => w.enabled), ...newWarehouses];
+  const { newWarehouses, warehouseUpdates } = planWarehouses(pdfItems, warehouses);
+  for (const { id, ...changes } of warehouseUpdates) Object.assign(warehouses.find(w => w.id === id), changes);
+  const enabledWarehouses = [...warehouses, ...newWarehouses].filter(w => w.enabled);
 
   onStep?.('Running analysis...');
   const { results, summary } = runAnalysis(pdfItems, masterItems, enabledWarehouses);
@@ -136,6 +128,7 @@ async function analyzeAndSave({ run, vendorId, pdfItems, onStep }) {
   await Promise.all([
     ...chunks.map(chunk => base44.entities.AnalysisItem.bulkCreate(chunk)),
     newWarehouses.length > 0 ? base44.entities.Warehouse.bulkCreate(newWarehouses) : null,
+    ...warehouseUpdates.map(({ id, ...changes }) => base44.entities.Warehouse.update(id, changes)),
   ]);
 
   onStep?.('Finalizing...');
@@ -145,7 +138,42 @@ async function analyzeAndSave({ run, vendorId, pdfItems, onStep }) {
     items_to_purchase: summary.items_to_purchase,
     critical_items: summary.critical_items,
     unknown_items: summary.unknown_items,
+    ...(meta?.report_date ? { report_date: meta.report_date } : {}),
   });
 
-  return { run, results, summary, enabledWarehouseCount: enabledWarehouses.length };
+  return {
+    run,
+    results,
+    summary,
+    enabledWarehouseCount: enabledWarehouses.length,
+    newEngineerWarehouses: newWarehouses.filter(w => !w.enabled).length,
+  };
+}
+
+// Warehouses seen in the report but not defined yet are registered with their code and name
+// ("A102" / "Riyadh Service"). Engineer stock (E…) is added as not counted; other new warehouses count.
+// A warehouse defined earlier by its code or name alone gets the missing code / name filled in.
+function planWarehouses(reportItems, warehouses) {
+  const seen = new Map(); // report warehouse code -> name
+  for (const r of reportItems) {
+    const code = (r.warehouse ?? '').toString().trim();
+    if (!code) continue;
+    const name = (r.warehouse_name ?? '').toString().trim();
+    if (!seen.get(code)) seen.set(code, name);
+  }
+
+  const newWarehouses = [];
+  const warehouseUpdates = [];
+  for (const [code, name] of seen) {
+    const c = normalizeName(code);
+    if (warehouses.some(w => w.code && normalizeName(w.code) === c)) continue;
+    const byName = warehouses.find(w => !w.code
+      && (normalizeName(w.name) === c || (name && normalizeName(w.name) === normalizeName(name))));
+    if (byName) {
+      if (name) warehouseUpdates.push({ id: byName.id, name, code });
+      continue;
+    }
+    newWarehouses.push({ name: name || code, code, enabled: !isEngineerWarehouse(code), important: false, visible: true });
+  }
+  return { newWarehouses, warehouseUpdates };
 }

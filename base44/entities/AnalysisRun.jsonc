@@ -44,6 +44,10 @@
       "type": "number",
       "title": "Unknown Items",
       "default": 0
+    },
+    "report_date": {
+      "type": "string",
+      "title": "Report Date"
     }
   },
   "required": [
