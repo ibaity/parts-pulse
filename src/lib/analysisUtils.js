@@ -92,6 +92,35 @@ export function matchMasterItem(itemCode, index) {
   return { item: null, matchedVia: 'none' };
 }
 
+// The company report can list one stock line under two codes, e.g. "D0064682/0064697".
+export function splitItemCode(code) {
+  const raw = (code ?? '').toString().trim();
+  const parts = raw.split('/').map(p => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : [raw];
+}
+
+// Which code of a report line identifies the part: the code as written when the master list has it,
+// else the first of its "/"-separated codes found there, else the first of them.
+export function resolveReportCode(code, index) {
+  const parts = splitItemCode(code);
+  for (const candidate of parts.length > 1 ? [code, ...parts] : parts) {
+    const match = matchMasterItem(candidate, index);
+    if (match.item) return { code: candidate, ...match };
+  }
+  return { code: parts[0], item: null, matchedVia: 'none' };
+}
+
+// A warehouse counts toward stock when it is enabled; one not defined yet counts unless it is an
+// engineer's stock (those are added as not counted until enabled on the Warehouses page).
+export function countsTowardStock(warehouse, warehouses) {
+  const normalized = normalizeName(warehouse);
+  if (!normalized) return false;
+  const known = warehouses.find(wh =>
+    normalizeName(wh.name) === normalized || (wh.code && normalizeName(wh.code) === normalized)
+  );
+  return known ? !!known.enabled : !isEngineerWarehouse(warehouse);
+}
+
 function stockResult(itemCode, masterItem, matchedVia, currentStock, warehouseBreakdown) {
   const minStock = Number(masterItem.minimum_stock) || 0;
   const needsPurchase = currentStock < minStock;
@@ -118,12 +147,19 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
   const itemMap = new Map();
   const warehouseLabels = new Map();
 
+  const index = buildMasterIndex(masterItems);
+
   for (const row of reportItems) {
-    const code = (row.item_code ?? '').toString().trim();
-    if (!code) continue;
+    const written = (row.item_code ?? '').toString().trim();
+    if (!written) continue;
+    const { code, item, matchedVia } = resolveReportCode(written, index);
     // "D0064730" and "IMM0064730" rows in one report are the same part: their stock is added up.
     const key = catalogCodeKey(code);
-    if (!itemMap.has(key)) itemMap.set(key, { code, warehouses: new Map() });
+    const fromSplit = code !== written;
+    const group = itemMap.get(key);
+    if (!group) itemMap.set(key, { code, item, matchedVia, fromSplit, warehouses: new Map() });
+    // A part reached through "D0064682/0064697" is shown under its own plain code when the report has one.
+    else if (group.fromSplit && !fromSplit) Object.assign(group, { code, item, matchedVia, fromSplit });
 
     const whName = (row.warehouse ?? '').toString().trim() || 'Unknown';
     const qty = Number(row.quantity) || 0;
@@ -133,12 +169,11 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
     if (label && label.toUpperCase() !== whName.toUpperCase()) warehouseLabels.set(whName, label);
   }
 
-  const index = buildMasterIndex(masterItems);
   const matchedMasterIds = new Set();
   const results = [];
   const reported = new Map(); // part key -> { index in results, master item } for every matched report row
 
-  for (const [key, { code, warehouses }] of itemMap) {
+  for (const [key, { code, item: masterItem, matchedVia, warehouses }] of itemMap) {
     let currentStock = 0;
     const warehouseBreakdown = {};
     for (const [whName, qty] of warehouses) {
@@ -149,7 +184,6 @@ export function runAnalysis(reportItems, masterItems, enabledWarehouses) {
       if (enabled) currentStock += qty;
     }
 
-    const { item: masterItem, matchedVia } = matchMasterItem(code, index);
     if (!masterItem) {
       results.push({
         item_code: code,

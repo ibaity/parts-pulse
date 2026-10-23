@@ -1,4 +1,4 @@
-// Reads stock-report PDFs (e.g. the Infor "Item List By Manufacturer" report) in the browser.
+// Reads the company stock report (the Infor "Item List By Manufacturer" report), exported as TXT or printed to PDF.
 // Each printed line looks like:
 //   D0065071   LAMP   EA Each   3.000000   020724   2034-12-31   A202   Jeddah Service
 //   item code  description / unit   on hand   lot   expiry (optional)   warehouse   warehouse name
@@ -12,6 +12,12 @@ const ITEM_CODE = /^[a-z]{1,6}\d[\w/.-]*$/i;
 //   item | description | inv unit | on hand | lot | expiry | warehouse code - warehouse name
 const PIPE_ITEM = /^[a-z]{1,6}\d[\w/.-]*$/i;
 
+// Report header: "Date   : 26-10-23 [06:20]" (YY-MM-DD) and "Manufacturer  :573    To 573".
+const REPORT_DATE = /\bDate\s*:\s*(\d{2})-(\d{2})-(\d{2})\s*\[(\d{2}):(\d{2})\]/;
+const MANUFACTURER_RANGE = /\bManufacturer\s*:\s*(\S+)\s+To\s+(\S+)/;
+// Manufacturer group line: "[whinh213.cmnf        :573    IMMUCOR        ]".
+const MANUFACTURER_GROUP = /\.cmnf\s*:\s*(\S+)\s+([^\]]*?)\s*\]/;
+
 function parsePipeLine(line) {
   const parts = line.split('|').map((p) => p.trim());
   if (parts.length < 6) return null;
@@ -22,6 +28,7 @@ function parsePipeLine(line) {
   const wm = whField.match(/^(\S+)\s*-\s*(.*)$/);
   return {
     item_code,
+    description: parts[1],
     quantity,
     warehouse: wm ? wm[1] : whField,
     warehouse_name: wm ? wm[2].trim() : '',
@@ -33,10 +40,32 @@ function parseSpaceLine(line) {
   if (!m) return null;
   return {
     item_code: m[1],
+    description: '',
     quantity: Number(m[2].replace(/,/g, '')) || 0,
     warehouse: m[5],
     warehouse_name: m[6].trim(),
   };
+}
+
+// Report date (local "YYYY-MM-DDTHH:mm") and manufacturers ({ code, name }) from the report header.
+function parseReportMeta(lines) {
+  let report_date = '';
+  const manufacturers = new Map();
+  let range = null;
+  for (const line of lines) {
+    if (!report_date) {
+      const d = line.match(REPORT_DATE);
+      if (d) report_date = `20${d[1]}-${d[2]}-${d[3]}T${d[4]}:${d[5]}`;
+    }
+    if (!range) range = line.match(MANUFACTURER_RANGE);
+    const g = line.match(MANUFACTURER_GROUP);
+    if (g && !manufacturers.has(g[1])) manufacturers.set(g[1], { code: g[1], name: g[2] });
+  }
+  // No group lines: a "From X To X" range still names the single manufacturer.
+  if (manufacturers.size === 0 && range && range[1] === range[2]) {
+    manufacturers.set(range[1], { code: range[1], name: '' });
+  }
+  return { report_date, manufacturers: [...manufacturers.values()] };
 }
 
 async function loadPdfJs() {
@@ -70,29 +99,39 @@ async function pdfLines(data) {
   return lines;
 }
 
-// Parses an array of text lines into report rows using the known report layout.
-// Returns null when the lines don't match the layout (the caller then uses AI extraction).
+// Parses an array of text lines into { items, meta } using the known report layout.
+// Returns null when the lines don't match the layout.
 function parseLines(lines) {
   const candidates = lines.filter((l) => {
     const first = l.includes('|') ? l.slice(0, l.indexOf('|')).trim() : l.split(/\s+/)[0];
     return ITEM_CODE.test(first);
   });
-  const rows = [];
+  const items = [];
   for (const line of candidates) {
     const parsed = line.includes('|') ? parsePipeLine(line) : parseSpaceLine(line);
-    if (parsed) rows.push(parsed);
+    if (parsed) items.push(parsed);
   }
   // Only trust the layout when (nearly) every item line was understood.
-  if (rows.length === 0 || rows.length < candidates.length * 0.9) return null;
-  return rows;
+  if (items.length === 0 || items.length < candidates.length * 0.9) return null;
+  return { items, meta: parseReportMeta(lines) };
 }
 
-// Returns report rows, or null when the PDF does not have this layout (the caller then uses AI extraction).
+// Returns { items, meta }, or null when the PDF does not have this layout (the caller then uses AI extraction).
 export async function parsePdfReport(data) {
   return parseLines(await pdfLines(data));
 }
 
-// Parses a plain-text stock report (same line layout as the PDF report).
+// Parses a plain-text stock report (same line layout as the PDF report). Returns { items, meta } or null.
 export function parseTxtReport(text) {
   return parseLines(text.split(/\r?\n/));
+}
+
+// Row count, total quantity and warehouse count, for previews before a report is used.
+export function summarizeReport(items) {
+  const warehouses = new Set(items.map(r => (r.warehouse ?? '').toString().trim()).filter(Boolean));
+  return {
+    rows: items.length,
+    quantity: items.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0),
+    warehouses: warehouses.size,
+  };
 }

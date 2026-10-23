@@ -196,6 +196,9 @@ export default function Analysis() {
                           <p className="text-sm font-medium truncate">{run.pdf_file_name}</p>
                           <p className="text-xs text-muted-foreground">
                             {moment(run.created_date).format('MMM D, YYYY HH:mm')}
+                            {run.report_date && (
+                              <span className="ml-2">· report of {moment(run.report_date).format('MMM D, YYYY HH:mm')}</span>
+                            )}
                             {run.status === 'completed' ? (
                               <>
                                 <span className="text-warning ml-2">{run.items_to_purchase || 0} to purchase</span>

@@ -71,7 +71,7 @@ export default function Warehouses() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
-      <PageHeader icon={WarehouseIcon} title="Warehouses" subtitle="Detected automatically from your stock reports. Choose which ones count toward available stock." />
+      <PageHeader icon={WarehouseIcon} title="Warehouses" subtitle="Detected automatically from your stock reports (engineer stock is added as not counted). Choose which ones count toward available stock." />
 
       <Card className="p-5">
         <h3 className="text-sm font-semibold mb-3">Add New Warehouse</h3>
@@ -119,11 +119,11 @@ export default function Warehouses() {
                 <tr key={wh.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      {isEngineerWarehouse(wh.name)
+                      {isEngineerWarehouse(wh.code || wh.name)
                         ? <HardHat className="w-4 h-4 text-accent" />
                         : <WarehouseIcon className="w-4 h-4 text-muted-foreground" />}
                       <span className="font-medium">{wh.name}</span>
-                      {isEngineerWarehouse(wh.name) && (
+                      {isEngineerWarehouse(wh.code || wh.name) && (
                         <span className="px-1.5 py-0.5 rounded bg-accent/10 text-accent text-[10px] font-medium">Engineer</span>
                       )}
                     </div>
