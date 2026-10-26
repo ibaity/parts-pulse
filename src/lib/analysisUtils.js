@@ -9,7 +9,7 @@ export function normalizeCode(code) {
 
 // Prefixes put in front of the same part number: our system writes "D0064730", "DL0064730" or "D IMMU 0064730",
 // the manufacturer writes "0064730" or "IMM0064730" (also "IMMU" / "IMMUCOR").
-const CODE_PREFIX = /^(?:d(?:l|imm(?:u(?:cor)?)?)?|imm(?:u(?:cor)?)?)(?=\d)/;
+const CODE_PREFIX = /^(?:t|d(?:l|imm(?:u(?:cor)?)?)?|imm(?:u(?:cor)?)?)(?=\d)/;
 
 // Normalized code without the "D" / "IMM" prefix, leading zeros kept ("IMM-0064730" -> "0064730").
 export function stripCodePrefix(code) {

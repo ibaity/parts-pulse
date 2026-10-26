@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Columns3, Check, Trash2, Loader2 } from 'lucide-react';
 import { useTableSort } from '@/hooks/useTableSort';
 import SortHeader from '@/components/table/SortHeader';
+import { stripCodePrefix } from '@/lib/analysisUtils';
 import { PART_CATEGORIES, fuzzyMatch } from '@/lib/partConstants';
 
 const COLUMN_DEFS = [
@@ -224,7 +225,10 @@ export default function UnknownItemsTable({ items, vendorId, onSaved, onDeleted 
               <tr key={item.id} className="border-b transition-colors hover:bg-muted/40">
                 {visibleCols.item_code && (
                   <td className="p-1 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {item.item_code || '-'}
+                    {item.item_code ? stripCodePrefix(item.item_code).toUpperCase() : '-'}
+                    {item.item_code && stripCodePrefix(item.item_code).toUpperCase() !== item.item_code.toUpperCase() && (
+                      <span className="block text-[10px] text-muted-foreground">{item.item_code}</span>
+                    )}
                     {item.reportCount > 1 && (
                       <span className="block font-sans text-[10px] text-info">seen in {item.reportCount} reports</span>
                     )}
