@@ -1,4 +1,5 @@
 import { catalogCodeKey } from '@/lib/analysisUtils';
+import { findCatalogPart } from '@/lib/catalogLookup';
 
 const time = (r) => new Date(r.updated_date || r.created_date || 0).getTime();
 const newestFirst = (a, b) => time(b) - time(a);
@@ -33,7 +34,7 @@ export function groupUnknownItems(unknownItems, masterItems) {
   const groups = new Map();
   for (const u of unknownItems) {
     const code = catalogCodeKey(u.item_code);
-    if (!code || masterCodes.has(code)) continue;
+    if (!code || masterCodes.has(code) || findCatalogPart(u.item_code)) continue;
     if (!groups.has(code)) groups.set(code, []);
     groups.get(code).push(u);
   }
