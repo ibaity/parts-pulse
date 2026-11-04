@@ -32,6 +32,19 @@ export default function Analysis() {
   const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
 
+  // Deletes from the Stock Status table. Items already deleted stay removed even if others fail.
+  const handleDeleteManual = async (ids) => {
+    const outcomes = await Promise.allSettled(ids.map(id => base44.entities.ManualOrderItem.delete(id)));
+    const deleted = ids.filter((_, i) => outcomes[i].status === 'fulfilled');
+    setManualItems(prev => prev.filter(item => !deleted.includes(item.id)));
+    const failed = ids.length - deleted.length;
+    if (failed > 0) {
+      toast({ title: 'Error', description: `${failed} of ${ids.length} items could not be deleted`, variant: 'destructive' });
+    } else {
+      toast({ title: 'Deleted', description: `${deleted.length} manual ${deleted.length === 1 ? 'item' : 'items'} removed` });
+    }
+  };
+
   const loadManualItems = async () => {
     if (!selectedVendor) return;
     try {
@@ -287,6 +300,7 @@ export default function Analysis() {
                 currency={fileCurrency}
                 sarRate={sarRate}
                 manualItems={manualItems}
+                onDeleteManual={handleDeleteManual}
               />
             ) : (
               <Card className="p-8 text-center text-muted-foreground">
