@@ -41,6 +41,7 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
     () => [...warehouseNames.filter(w => !isEngineerWarehouse(w)), ...warehouseNames.filter(isEngineerWarehouse)],
     [warehouseNames]
   );
+  const hasEngineers = useMemo(() => warehouseNames.some(isEngineerWarehouse), [warehouseNames]);
   const [search, setSearch] = useState('');
   const [missing, setMissing] = useState([]); // keys of MISSING_FILTERS; a row shows if it lacks any of them
   const [edits, setEdits] = useState({});
@@ -236,7 +237,10 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
               {visibleCols.unit_price && showsSar(currency, sarRate) && <SortHeader label="Price (SAR)" sortKey="unit_price" activeKey={sortKey} direction={sortDir} onSort={toggleSort} align="right" />}
               {visibleCols.unit && <SortHeader label="Unit" sortKey="unit" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />}
               {warehouseNames.length > 0 && (
-                <th className="text-right p-2 font-medium whitespace-nowrap text-xs">Total</th>
+                <th className="text-right p-2 font-medium whitespace-nowrap text-xs" title="Main warehouses only — engineers' stock is not counted">Total (main)</th>
+              )}
+              {hasEngineers && (
+                <th className="text-right p-2 font-medium whitespace-nowrap text-xs bg-accent/5" title="Total stock held by engineers (E… warehouses), not counted in the total">Engineers</th>
               )}
               {orderedWarehouses.map(wh => (
                 <th key={wh} className={`text-right p-2 font-medium whitespace-nowrap text-xs ${isEngineerWarehouse(wh) ? 'bg-accent/5' : ''}`}>{wh}</th>
@@ -350,6 +354,11 @@ export default function MasterItemsTable({ items, fileId, onDeleted, onSaved, cu
                   {warehouseNames.length > 0 && (
                     <td className="p-2 text-right text-xs font-semibold">
                       {getStock(item)?.total ?? '—'}
+                    </td>
+                  )}
+                  {hasEngineers && (
+                    <td className="p-2 text-right text-xs text-muted-foreground bg-accent/5">
+                      {getStock(item) ? (getStock(item).engineers || '—') : '—'}
                     </td>
                   )}
                   {orderedWarehouses.map(wh => {
