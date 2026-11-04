@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import AnalysisRunner from '@/components/AnalysisRunner';
 import ResultsTable from '@/components/ResultsTable';
 import ManualOrderPanel from '@/components/ManualOrderPanel';
-import { executeAnalysisFlow } from '@/lib/analysisFlow';
 import { fetchAll } from '@/lib/fetchAll';
-import { isSpreadsheet } from '@/lib/reportParser';
+import { isSpreadsheet } from '@/lib/fileTypes';
 import { useToast } from '@/components/ui/use-toast';
 import { FileText, FileSpreadsheet, ChevronRight, RefreshCw, Loader2, FlaskConical } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -17,6 +15,10 @@ import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 import { getSarRate } from '@/lib/partConstants';
 import { catalogCodeKey, splitItemCode } from '@/lib/analysisUtils';
+
+// The report readers (xlsx, pdf.js) are large: they load only when a new analysis or a re-run needs them,
+// so opening the page to look at the stock status stays fast.
+const AnalysisRunner = lazy(() => import('@/components/AnalysisRunner'));
 
 // Stock status of an analysis row after its minimum changes (same rule as the analysis itself).
 function withMinimum(row, minimum) {
@@ -43,6 +45,43 @@ export default function Analysis() {
   const [manualItems, setManualItems] = useState([]);
   const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
+  // Requests started for one vendor must not overwrite the page after switching to another.
+  const vendorRef = useRef(selectedVendor);
+  vendorRef.current = selectedVendor;
+  // Master items of the vendor, read once on the first minimum edit instead of on every edit.
+  const masterCache = useRef({ vendorId: null, items: null });
+
+  const loadMasterItems = async () => {
+    const vendorId = selectedVendor;
+    if (masterCache.current.vendorId !== vendorId || !masterCache.current.items) {
+      masterCache.current = { vendorId, items: fetchAll(base44.entities.MasterItem, { vendor_id: vendorId }) };
+    }
+    try {
+      return await masterCache.current.items;
+    } catch (err) {
+      masterCache.current = { vendorId: null, items: null };
+      throw err;
+    }
+  };
+
+  // Changes the order quantity of one row: an analysis row only for the shown run (a new analysis suggests
+  // its own quantity again), a manual row on the manual order list.
+  const handleUpdateQuantity = async (row, quantity) => {
+    try {
+      if (row.source === 'manual') {
+        await base44.entities.ManualOrderItem.update(row.manual_id, { quantity });
+        setManualItems(prev => prev.map(m => (m.id === row.manual_id ? { ...m, quantity } : m)));
+      } else {
+        await base44.entities.AnalysisItem.update(row.id, { recommended_quantity: quantity });
+        setResults(prev => prev.map(r => (r.id === row.id ? { ...r, recommended_quantity: quantity } : r)));
+      }
+      return true;
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to update the order quantity', variant: 'destructive' });
+      return false;
+    }
+  };
 
   // Changes a part's minimum from the Stock Status table: saved on its master item(s), so later analyses use it,
   // and on the shown analysis row, so the purchase list updates right away.
@@ -51,7 +90,7 @@ export default function Analysis() {
     if (!row) return false;
     try {
       const keys = new Set(splitItemCode(row.item_code).concat(row.item_code).map(catalogCodeKey).filter(Boolean));
-      const masterItems = await fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor });
+      const masterItems = await loadMasterItems();
       // Every master record of the part (e.g. "D0066806" and "IMM0066806") gets the new minimum,
       // otherwise the analysis would keep using the higher one of them.
       const matches = masterItems.filter(mi =>
@@ -65,6 +104,7 @@ export default function Analysis() {
         ...matches.map(mi => base44.entities.MasterItem.update(mi.id, { minimum_stock: minimum })),
         base44.entities.AnalysisItem.update(row.id, changes),
       ]);
+      for (const mi of matches) mi.minimum_stock = minimum; // keep the cached copy current
       const updated = results.map(r => (r.id === row.id ? { ...r, ...changes } : r));
       setResults(updated);
 
@@ -109,8 +149,9 @@ export default function Analysis() {
   const loadManualItems = async () => {
     if (!selectedVendor) return;
     try {
-      const data = await base44.entities.ManualOrderItem.filter({ vendor_id: selectedVendor }, '-created_date', 200);
-      setManualItems(data);
+      const vendorId = selectedVendor;
+      const data = await base44.entities.ManualOrderItem.filter({ vendor_id: vendorId }, '-created_date', 200);
+      if (vendorRef.current === vendorId) setManualItems(data);
     } catch (err) {
       console.error(err);
     }
@@ -123,10 +164,12 @@ export default function Analysis() {
     setLoadingLatest(true);
     try {
       const data = await base44.entities.AnalysisRun.filter({ vendor_id: vendorId }, '-created_date', 20);
+      if (vendorRef.current !== vendorId) return;
       setRuns(data);
       const latest = data.find(r => r.status === 'completed');
       if (latest) {
         const items = await fetchAll(base44.entities.AnalysisItem, { analysis_run_id: latest.id }, '-recommended_quantity');
+        if (vendorRef.current !== vendorId) return;
         setResults(items);
         setShownRun(latest);
       } else {
@@ -136,8 +179,9 @@ export default function Analysis() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (vendorRef.current === vendorId) setLoadingLatest(false);
     }
-    setLoadingLatest(false);
   };
 
   useEffect(() => {
@@ -148,9 +192,10 @@ export default function Analysis() {
     if (selectedVendor) {
       loadRuns();
       loadManualItems();
-      base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 100)
+      // Only the newest master file sets the currency.
+      base44.entities.MasterFile.filter({ vendor_id: selectedVendor }, '-created_date', 1)
         .then(files => {
-          if (files.length > 0 && files[0].currency) {
+          if (vendorRef.current === files[0]?.vendor_id && files[0].currency) {
             setFileCurrency(files[0].currency);
             setSarRate(getSarRate(files[0].currency, files[0].sar_rate));
           }
@@ -185,6 +230,7 @@ export default function Analysis() {
     setRerunId(run.id);
     setRerunStep('');
     try {
+      const { executeAnalysisFlow } = await import('@/lib/analysisFlow');
       const { results: newResults, summary, enabledWarehouseCount } = await executeAnalysisFlow({
         vendorId: selectedVendor,
         pdfFileUrl: run.pdf_file_url,
@@ -240,10 +286,12 @@ export default function Analysis() {
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-6 mt-4">
-            <AnalysisRunner
-              vendorId={selectedVendor}
-              onAnalysisComplete={handleAnalysisComplete}
-            />
+            <Suspense fallback={<Card className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-accent" /></Card>}>
+              <AnalysisRunner
+                vendorId={selectedVendor}
+                onAnalysisComplete={handleAnalysisComplete}
+              />
+            </Suspense>
 
             <ManualOrderPanel
               vendorId={selectedVendor}
@@ -363,6 +411,7 @@ export default function Analysis() {
                 manualItems={manualItems}
                 onDeleteManual={handleDeleteManual}
                 onUpdateMinimum={handleUpdateMinimum}
+                onUpdateQuantity={handleUpdateQuantity}
               />
             ) : (
               <Card className="p-8 text-center text-muted-foreground">
