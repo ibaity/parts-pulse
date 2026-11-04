@@ -4,9 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Download, PackageX, CheckCircle2, FileSpreadsheet, FileText, ChevronDown, Search, ArrowRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet, PenLine,
+  Trash2, Loader2, X,
 } from 'lucide-react';
 import { getCurrencySymbol, formatPrice, formatSar, showsSar } from '@/lib/partConstants';
 import Money from '@/components/Money';
@@ -55,6 +61,10 @@ function sortValue(r, key) {
 // A stock figure exists only when the part appeared in the report (an analysis row missing from it is counted as 0,
 // a manual row has stock only when its code is in the analysis).
 const hasStock = (r) => r.current_stock !== null && r.current_stock !== undefined && !isMissingFromReport(r);
+
+// A manual order whose part is already at or above its minimum stock in the latest report.
+const stockIsEnough = (r) => r.source === 'manual' && hasStock(r) && r.minimum_stock !== null
+  && (Number(r.current_stock) || 0) >= (Number(r.minimum_stock) || 0);
 
 // Part key -> analysis row, so a manual item shows the stock the report has for the same part.
 function indexByPart(results) {
@@ -156,6 +166,11 @@ function SourceTag({ r }) {
         {manual ? <PenLine className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
         {manual ? 'Manual' : 'Analysis'}
       </span>
+      {stockIsEnough(r) && (
+        <span className="text-[10px] text-success whitespace-nowrap" title="The latest report already has this part at or above its minimum">
+          Stock is enough
+        </span>
+      )}
       {r.duplicate && (
         <span className="text-[10px] text-warning whitespace-nowrap" title="The same part is also ordered in another row — check the order quantity">
           {manual ? 'Also in analysis' : 'Also added manually'}
@@ -205,8 +220,11 @@ function WarehouseBreakdown({ r }) {
   );
 }
 
-export default function ResultsTable({ results, vendorId, vendorName, currency, sarRate, manualItems = [] }) {
+export default function ResultsTable({ results, vendorId, vendorName, currency, sarRate, manualItems = [], onDeleteManual }) {
   const [filter, setFilter] = useState('all');
+  const [selected, setSelected] = useState(() => new Set()); // manual item ids
+  const [confirmIds, setConfirmIds] = useState(null); // manual item ids waiting for confirmation
+  const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState({ key: 'status', dir: 'asc' });
   const [expanded, setExpanded] = useState(null);
@@ -231,6 +249,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
       const known = match && match.status !== 'unknown' ? match : null;
       return {
         id: `manual-${m.id}`,
+        manual_id: m.id,
         source: 'manual',
         item_code: m.item_code || '',
         description: m.description || known?.description || '',
@@ -256,6 +275,28 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
     manual: manualRows.length,
   };
   const duplicateCount = manualRows.filter(r => r.duplicate).length;
+  const enoughIds = manualRows.filter(stockIsEnough).map(r => r.manual_id);
+  // Ids of deleted items drop out of the selection on their own.
+  const selectedIds = manualRows.filter(r => selected.has(r.manual_id)).map(r => r.manual_id);
+  const canDelete = !!onDeleteManual;
+
+  const toggleSelected = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDeleteManual(confirmIds);
+      setSelected(prev => new Set([...prev].filter(id => !confirmIds.includes(id))));
+    } finally {
+      setDeleting(false);
+      setConfirmIds(null);
+    }
+  };
+  const confirmRows = manualRows.filter(r => confirmIds?.includes(r.manual_id));
 
   const grandTotal = allPurchaseItems.reduce((sum, r) => sum + lineTotal(r), 0);
 
@@ -371,6 +412,29 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
             </div>
           </div>
 
+          {canDelete && counts.manual > 0 && (selectedIds.length > 0 || filter === 'manual') && (
+            <div className="px-3 sm:px-4 py-2 border-b bg-primary/5 flex flex-wrap items-center gap-2 text-xs">
+              {selectedIds.length > 0 ? (
+                <>
+                  <span className="font-medium">{selectedIds.length} manual {selectedIds.length === 1 ? 'item' : 'items'} selected</span>
+                  <Button size="sm" variant="destructive" className="h-7" onClick={() => setConfirmIds(selectedIds)}>
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />Delete
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7" onClick={() => setSelected(new Set())}>
+                    <X className="w-3.5 h-3.5 mr-1" />Clear
+                  </Button>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Tick the manual items you no longer need, then delete them.</span>
+              )}
+              {enoughIds.length > 0 && (
+                <Button size="sm" variant="outline" className="h-7 sm:ml-auto" onClick={() => setSelected(new Set(enoughIds))}>
+                  Select items with enough stock ({enoughIds.length})
+                </Button>
+              )}
+            </div>
+          )}
+
           {visibleItems.length === 0 && (
             <p className="p-10 text-center text-sm text-muted-foreground">No items match this filter.</p>
           )}
@@ -382,7 +446,13 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
               const isOpen = expanded === key;
               return (
                 <div key={key} className={`p-4 border-l-[3px] ${ROW_BORDER[r.status] || 'border-l-warning'}`}>
-                  <button className="w-full text-left" onClick={() => setExpanded(isOpen ? null : key)}>
+                  <div className="flex items-start gap-3">
+                  {canDelete && r.source === 'manual' && (
+                    <span className="pt-0.5">
+                      <Checkbox checked={selected.has(r.manual_id)} onCheckedChange={() => toggleSelected(r.manual_id)} aria-label={`Select ${r.item_code}`} />
+                    </span>
+                  )}
+                  <button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : key)}>
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="font-mono text-sm font-bold">{r.item_code}</p>
@@ -406,7 +476,17 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       </div>
                     )}
                   </button>
-                  {isOpen && <div className="mt-3"><WarehouseBreakdown r={r} /></div>}
+                  </div>
+                  {isOpen && (
+                    <div className="mt-3 space-y-3">
+                      <WarehouseBreakdown r={r} />
+                      {canDelete && r.source === 'manual' && (
+                        <Button size="sm" variant="outline" className="h-8 text-destructive" onClick={() => setConfirmIds([r.manual_id])}>
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete manual item
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -433,7 +513,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       </th>
                     );
                   })}
-                  <th className="w-10" />
+                  <th className="w-16" />
                 </tr>
               </thead>
               <tbody>
@@ -448,7 +528,13 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                           ROW_BORDER[r.status] || 'border-l-warning'
                         } ${isOpen ? 'bg-accent/5' : i % 2 ? 'bg-muted/25 hover:bg-muted/50' : 'hover:bg-muted/50'}`}
                       >
-                        <td className="pl-4 py-3.5 text-xs text-muted-foreground tabular-nums">{i + 1}</td>
+                        <td className="pl-4 py-3.5 text-xs text-muted-foreground tabular-nums">
+                          {canDelete && r.source === 'manual' ? (
+                            <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+                              <Checkbox checked={selected.has(r.manual_id)} onCheckedChange={() => toggleSelected(r.manual_id)} aria-label={`Select ${r.item_code}`} />
+                            </span>
+                          ) : i + 1}
+                        </td>
                         <td className="px-4 py-3.5 font-mono text-[13px] font-bold whitespace-nowrap">{r.item_code}</td>
                         <td className="px-4 py-3.5">{r.description || <span className="text-muted-foreground">—</span>}</td>
                         <td className="px-4 py-3.5"><SourceTag r={r} /></td>
@@ -465,7 +551,19 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                         <td className="px-4 py-3.5 text-right font-semibold tabular-nums"><Money value={lineTotal(r)} currency={currency} sarRate={sarRate} /></td>
                         <td className="px-4 py-3.5 text-center"><StatusPill r={r} /></td>
                         <td className="pr-4 text-muted-foreground">
-                          <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          <span className="inline-flex items-center gap-1">
+                            {canDelete && r.source === 'manual' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmIds([r.manual_id]); }}
+                                className="p-1 rounded hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete this manual item"
+                                aria-label={`Delete ${r.item_code}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </span>
                         </td>
                       </tr>
                       {isOpen && (
@@ -499,6 +597,40 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
           </div>
         </Card>
       )}
+
+      <AlertDialog open={!!confirmIds} onOpenChange={(open) => { if (!open && !deleting) setConfirmIds(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {confirmRows.length} manual {confirmRows.length === 1 ? 'item' : 'items'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>They are removed from the manual order list. Items from the analysis are not affected.</p>
+                <ul className="max-h-48 overflow-y-auto rounded-md border divide-y text-xs">
+                  {confirmRows.map(r => (
+                    <li key={r.id} className="flex items-center gap-2 px-2.5 py-1.5">
+                      <span className="font-mono font-semibold text-foreground">{r.item_code}</span>
+                      <span className="truncate flex-1">{r.description}</span>
+                      <span className="tabular-nums whitespace-nowrap">qty {r.recommended_quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {unknownItems.length > 0 && (
         <Card className="overflow-hidden border-info/30 shadow-sm">
