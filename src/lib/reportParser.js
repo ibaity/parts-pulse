@@ -10,11 +10,7 @@ export const REPORT_FIELDS = [
 // Name columns are detected first so "Warehouse Name" isn't taken as the warehouse code column.
 const DETECT_ORDER = ['item_code', 'quantity', 'warehouse_name', 'warehouse'];
 
-const SPREADSHEET_EXT = /\.(xlsx|xls|csv)$/i;
-
-export function isSpreadsheet(fileName) {
-  return SPREADSHEET_EXT.test(fileName || '');
-}
+export { isSpreadsheet } from '@/lib/fileTypes';
 
 // Picks the most likely column for each field from the header names.
 export function detectColumns(columns) {
