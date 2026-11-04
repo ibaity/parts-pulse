@@ -6,25 +6,27 @@ import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Download, PackageX, CheckCircle2, FileSpreadsheet, FileText, ChevronDown, Search, ArrowRight,
-  ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet,
+  ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet, PenLine,
 } from 'lucide-react';
 import { getCurrencySymbol, formatPrice, formatSar, showsSar } from '@/lib/partConstants';
 import Money from '@/components/Money';
-import { isMissingFromReport, codeIncludes } from '@/lib/analysisUtils';
+import { isMissingFromReport, codeIncludes, catalogCodeKey, splitItemCode } from '@/lib/analysisUtils';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'critical', label: 'Critical' },
   { key: 'low', label: 'Low' },
   { key: 'missing', label: 'Not in report' },
+  { key: 'manual', label: 'Added manually' },
 ];
 
-const STATUS_ORDER = { critical: 0, low: 1 };
+const STATUS_ORDER = { critical: 0, low: 1, manual: 2 };
 
 const COLUMNS = [
   { key: 'item_code', label: 'Item No.', align: 'left' },
   { key: 'description', label: 'Item', align: 'left' },
-  { key: 'current_stock', label: 'In stock %', align: 'right', title: 'Sorts by stock as a % of the minimum' },
+  { key: 'source', label: 'Source', align: 'left' },
+  { key: 'current_stock', label: 'In stock', align: 'right', title: 'Sorts by stock as a % of the minimum' },
   { key: 'minimum_stock', label: 'Minimum', align: 'right' },
   { key: 'recommended_quantity', label: 'Order qty', align: 'right' },
   { key: 'unit_price', label: 'Unit price', align: 'right', className: 'hidden lg:table-cell' },
@@ -37,15 +39,33 @@ const lineTotal = (r) => (Number(r.unit_price) || 0) * (Number(r.recommended_qua
 function sortValue(r, key) {
   if (key === 'total') return lineTotal(r);
   if (key === 'status') return STATUS_ORDER[r.status] ?? 9;
+  if (key === 'source') return r.source === 'manual' ? 1 : 0;
   if (key === 'item_code') return (r.item_code || '').toLowerCase();
   if (key === 'description') return (r.description || '').toLowerCase();
   // In stock sorts by how full the stock is (% of minimum), so the closest to running out come first.
   if (key === 'current_stock') {
+    if (!hasStock(r)) return -1;
     const current = Number(r.current_stock) || 0;
     const min = Number(r.minimum_stock) || 0;
     return min > 0 ? current / min : current > 0 ? Infinity : 0;
   }
   return Number(r[key]) || 0;
+}
+
+// A stock figure exists only when the part appeared in the report (an analysis row missing from it is counted as 0,
+// a manual row has stock only when its code is in the analysis).
+const hasStock = (r) => r.current_stock !== null && r.current_stock !== undefined && !isMissingFromReport(r);
+
+// Part key -> analysis row, so a manual item shows the stock the report has for the same part.
+function indexByPart(results) {
+  const map = new Map();
+  for (const r of results) {
+    for (const code of [r.item_code, ...splitItemCode(r.item_code)]) {
+      const key = catalogCodeKey(code);
+      if (key && !map.has(key)) map.set(key, r);
+    }
+  }
+  return map;
 }
 
 const TILE_TONES = {
@@ -71,7 +91,19 @@ function SummaryTile({ icon: Icon, label, value, sub, tone }) {
 }
 
 // How full the stock is compared to its minimum: red when empty, amber below minimum.
-function StockLevel({ current, min, compact = false }) {
+function StockLevel({ r, compact = false }) {
+  if (!hasStock(r)) {
+    const text = r.source === 'manual' && !r.in_analysis ? 'Not in analysis' : 'Not in report';
+    return (
+      <span className="text-xs text-info whitespace-nowrap" title={r.source === 'manual'
+        ? 'This code is not in the latest report, so its stock is unknown'
+        : 'This part is not in the latest report, so it is counted as zero stock'}>
+        {compact ? `Stock: ${text}` : text}
+      </span>
+    );
+  }
+  const current = Number(r.current_stock) || 0;
+  const min = Number(r.minimum_stock) || 0;
   const pct = min > 0 ? Math.max(0, Math.min(100, (current / min) * 100)) : 0;
   const empty = current <= 0;
   const bar = (
@@ -100,18 +132,40 @@ function StockLevel({ current, min, compact = false }) {
   );
 }
 
+const STATUS_STYLE = {
+  critical: ['Critical', 'bg-critical/10 text-critical'],
+  low: ['Low', 'bg-warning/10 text-warning'],
+  manual: ['Manual', 'bg-primary/10 text-primary'],
+};
+
 function StatusPill({ r }) {
+  const [label, cls] = STATUS_STYLE[r.status] || STATUS_STYLE.low;
   return (
-    <span className="inline-flex flex-col items-center gap-1">
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-        r.status === 'critical' ? 'bg-critical/10 text-critical' : 'bg-warning/10 text-warning'
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>
+  );
+}
+
+// Where the row comes from: the report analysis or the manual order list (with a warning when a part is in both).
+function SourceTag({ r }) {
+  const manual = r.source === 'manual';
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border whitespace-nowrap ${
+        manual ? 'bg-primary/5 border-primary/30 text-primary' : 'bg-muted/60 border-border text-muted-foreground'
       }`}>
-        {r.status === 'critical' ? 'Critical' : 'Low'}
+        {manual ? <PenLine className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+        {manual ? 'Manual' : 'Analysis'}
       </span>
-      {isMissingFromReport(r) && <span className="text-[10px] text-info whitespace-nowrap">Not in report</span>}
+      {r.duplicate && (
+        <span className="text-[10px] text-warning whitespace-nowrap" title="The same part is also ordered in another row — check the order quantity">
+          {manual ? 'Also in analysis' : 'Also added manually'}
+        </span>
+      )}
     </span>
   );
 }
+
+const ROW_BORDER = { critical: 'border-l-critical', low: 'border-l-warning', manual: 'border-l-primary' };
 
 function MiniStat({ label, value, danger = false, highlight = false }) {
   return (
@@ -122,10 +176,16 @@ function MiniStat({ label, value, danger = false, highlight = false }) {
   );
 }
 
-function WarehouseBreakdown({ breakdown }) {
-  const entries = Object.entries(breakdown || {});
+function WarehouseBreakdown({ r }) {
+  const entries = Object.entries(r.warehouse_breakdown || {});
   if (entries.length === 0) {
-    return <p className="text-xs text-muted-foreground">Not found in the report — counted as zero stock.</p>;
+    return (
+      <p className="text-xs text-muted-foreground">
+        {r.source === 'manual' && !hasStock(r)
+          ? 'Added manually — this code is not in the latest report, so its stock is unknown.'
+          : 'Not found in the report — counted as zero stock.'}
+      </p>
+    );
   }
   return (
     <div className="flex flex-wrap gap-2">
@@ -152,35 +212,58 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   const [expanded, setExpanded] = useState(null);
   const symbol = getCurrencySymbol(currency);
 
-  const purchaseItems = useMemo(
-    () => results.filter(r => r.status === 'critical' || r.status === 'low'),
-    [results]
-  );
   const unknownItems = useMemo(() => results.filter(r => r.status === 'unknown'), [results]);
 
+  // Analysis rows and manual rows in one list. A manual row takes its stock, minimum and warehouses
+  // from the analysis row of the same part, so its current stock is visible too.
+  const { purchaseItems, manualRows, allPurchaseItems } = useMemo(() => {
+    const byPart = indexByPart(results);
+    const manualKeys = new Set(manualItems.map(m => catalogCodeKey(m.item_code)).filter(Boolean));
+    const analysisRows = results
+      .filter(r => r.status === 'critical' || r.status === 'low')
+      .map(r => ({ ...r, source: 'analysis', duplicate: manualKeys.has(catalogCodeKey(r.item_code)) }));
+    const analysisKeys = new Set(analysisRows.map(r => catalogCodeKey(r.item_code)));
+    const manual = manualItems.map(m => {
+      const key = catalogCodeKey(m.item_code);
+      const found = key ? byPart.get(key) : null;
+      // A part the analysis only assumed as zero (absent from the report) has no stock reading either.
+      const match = found && !isMissingFromReport(found) ? found : null;
+      const known = match && match.status !== 'unknown' ? match : null;
+      return {
+        id: `manual-${m.id}`,
+        source: 'manual',
+        item_code: m.item_code || '',
+        description: m.description || known?.description || '',
+        current_stock: match ? match.current_stock : null,
+        minimum_stock: known ? known.minimum_stock : found?.minimum_stock ?? null,
+        warehouse_breakdown: match?.warehouse_breakdown || {},
+        recommended_quantity: Number(m.quantity) || 0,
+        unit_price: Number(m.unit_price) || 0,
+        status: 'manual',
+        notes: m.notes || '',
+        in_analysis: !!found,
+        duplicate: analysisKeys.has(key),
+      };
+    });
+    return { purchaseItems: analysisRows, manualRows: manual, allPurchaseItems: [...analysisRows, ...manual] };
+  }, [results, manualItems]);
+
   const counts = {
-    all: purchaseItems.length,
+    all: allPurchaseItems.length,
     critical: purchaseItems.filter(r => r.status === 'critical').length,
     low: purchaseItems.filter(r => r.status === 'low').length,
     missing: purchaseItems.filter(isMissingFromReport).length,
+    manual: manualRows.length,
   };
+  const duplicateCount = manualRows.filter(r => r.duplicate).length;
 
-  const normalizedManual = manualItems.map(m => ({
-    item_code: m.item_code || '',
-    description: m.description || '',
-    current_stock: '-',
-    minimum_stock: 0,
-    recommended_quantity: Number(m.quantity) || 0,
-    unit_price: Number(m.unit_price) || 0,
-    status: 'manual',
-  }));
-  const allPurchaseItems = [...purchaseItems, ...normalizedManual];
   const grandTotal = allPurchaseItems.reduce((sum, r) => sum + lineTotal(r), 0);
 
   const visibleItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = purchaseItems.filter(r => {
-      if (filter === 'missing' && !isMissingFromReport(r)) return false;
+    const rows = allPurchaseItems.filter(r => {
+      if (filter === 'missing' && (r.source !== 'analysis' || !isMissingFromReport(r))) return false;
+      if (filter === 'manual' && r.source !== 'manual') return false;
       if ((filter === 'critical' || filter === 'low') && r.status !== filter) return false;
       if (!q) return true;
       return codeIncludes(r.item_code, q) || (r.description || '').toLowerCase().includes(q);
@@ -193,25 +276,30 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
       if (va > vb) return dir;
       return (Number(b.recommended_quantity) || 0) - (Number(a.recommended_quantity) || 0);
     });
-  }, [purchaseItems, filter, query, sort]);
+  }, [allPurchaseItems, filter, query, sort]);
 
   const toggleSort = (key) => {
     setSort(prev => prev.key === key
       ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: ['item_code', 'description', 'status', 'current_stock'].includes(key) ? 'asc' : 'desc' });
+      : { key, dir: ['item_code', 'description', 'status', 'source', 'current_stock'].includes(key) ? 'asc' : 'desc' });
   };
 
   // Export libraries are large, so load them only when exporting.
   const handleExport = async (type) => {
     const { exportPurchaseExcel, exportPurchasePDF } = await import('@/lib/exportUtils');
-    if (type === 'excel') exportPurchaseExcel(allPurchaseItems, vendorName, currency, sarRate);
-    else exportPurchasePDF(allPurchaseItems, vendorName, currency, sarRate);
+    const rows = allPurchaseItems.map(r => ({
+      ...r,
+      current_stock: hasStock(r) ? r.current_stock : r.source === 'manual' ? '-' : 0,
+      minimum_stock: r.minimum_stock ?? '-',
+    }));
+    if (type === 'excel') exportPurchaseExcel(rows, vendorName, currency, sarRate);
+    else exportPurchasePDF(rows, vendorName, currency, sarRate);
   };
 
   const withSar = showsSar(currency, sarRate);
   const totalText = `${symbol} ${formatPrice(grandTotal)}`;
 
-  if (purchaseItems.length === 0 && unknownItems.length === 0) {
+  if (allPurchaseItems.length === 0 && unknownItems.length === 0) {
     return (
       <Card className="p-12 text-center shadow-sm">
         <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-3" />
@@ -224,7 +312,13 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryTile icon={ShoppingCart} label="To purchase" value={counts.all} tone="warning" />
+        <SummaryTile
+          icon={ShoppingCart}
+          label="To purchase"
+          value={counts.all}
+          sub={counts.manual > 0 ? `${purchaseItems.length} from analysis · ${counts.manual} manual` : null}
+          tone="warning"
+        />
         <SummaryTile icon={AlertTriangle} label="Critical (zero stock)" value={counts.critical} tone="critical" />
         <SummaryTile icon={EyeOff} label="Not in report" value={counts.missing} tone="info" />
         <SummaryTile
@@ -236,7 +330,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
         />
       </div>
 
-      {purchaseItems.length > 0 && (
+      {allPurchaseItems.length > 0 && (
         <Card className="shadow-sm">
           {/* Toolbar stays visible while the page scrolls (desktop). */}
           <div className="p-3 sm:p-4 border-b flex flex-col lg:flex-row lg:items-center gap-3 bg-card rounded-t-xl lg:sticky lg:top-0 lg:z-20 lg:h-[64px]">
@@ -287,22 +381,23 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
               const key = r.id || `${r.item_code}-${i}`;
               const isOpen = expanded === key;
               return (
-                <div key={key} className={`p-4 border-l-[3px] ${r.status === 'critical' ? 'border-l-critical' : 'border-l-warning'}`}>
+                <div key={key} className={`p-4 border-l-[3px] ${ROW_BORDER[r.status] || 'border-l-warning'}`}>
                   <button className="w-full text-left" onClick={() => setExpanded(isOpen ? null : key)}>
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="font-mono text-sm font-bold">{r.item_code}</p>
                         {r.description && <p className="text-sm text-muted-foreground">{r.description}</p>}
+                        <div className="mt-1.5"><SourceTag r={r} /></div>
                       </div>
                       <StatusPill r={r} />
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                      <MiniStat label="In stock" value={r.current_stock} danger={Number(r.current_stock) <= 0} />
-                      <MiniStat label="Minimum" value={r.minimum_stock} />
+                      <MiniStat label="In stock" value={hasStock(r) ? r.current_stock : '—'} danger={hasStock(r) && Number(r.current_stock) <= 0} />
+                      <MiniStat label="Minimum" value={r.minimum_stock ?? '—'} />
                       <MiniStat label="Order" value={r.recommended_quantity} highlight />
                     </div>
                     <div className="mt-2.5">
-                      <StockLevel compact current={Number(r.current_stock) || 0} min={Number(r.minimum_stock) || 0} />
+                      <StockLevel compact r={r} />
                     </div>
                     {lineTotal(r) > 0 && (
                       <div className="mt-2 flex items-start justify-end gap-1.5 text-xs text-muted-foreground">
@@ -311,7 +406,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                       </div>
                     )}
                   </button>
-                  {isOpen && <div className="mt-3"><WarehouseBreakdown breakdown={r.warehouse_breakdown} /></div>}
+                  {isOpen && <div className="mt-3"><WarehouseBreakdown r={r} /></div>}
                 </div>
               );
             })}
@@ -345,22 +440,22 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                 {visibleItems.map((r, i) => {
                   const key = r.id || `${r.item_code}-${i}`;
                   const isOpen = expanded === key;
-                  const current = Number(r.current_stock) || 0;
                   return (
                     <Fragment key={key}>
                       <tr
                         onClick={() => setExpanded(isOpen ? null : key)}
                         className={`cursor-pointer border-t transition-colors border-l-[3px] ${
-                          r.status === 'critical' ? 'border-l-critical' : 'border-l-warning'
+                          ROW_BORDER[r.status] || 'border-l-warning'
                         } ${isOpen ? 'bg-accent/5' : i % 2 ? 'bg-muted/25 hover:bg-muted/50' : 'hover:bg-muted/50'}`}
                       >
                         <td className="pl-4 py-3.5 text-xs text-muted-foreground tabular-nums">{i + 1}</td>
                         <td className="px-4 py-3.5 font-mono text-[13px] font-bold whitespace-nowrap">{r.item_code}</td>
                         <td className="px-4 py-3.5">{r.description || <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-4 py-3.5"><SourceTag r={r} /></td>
                         <td className="px-4 py-3.5 text-right">
-                          <StockLevel current={current} min={Number(r.minimum_stock) || 0} />
+                          <StockLevel r={r} />
                         </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">{r.minimum_stock}</td>
+                        <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">{r.minimum_stock ?? '—'}</td>
                         <td className="px-4 py-3.5 text-right">
                           <span className="inline-block min-w-[2.75rem] text-center px-2 py-1 rounded-md bg-primary/10 text-primary text-base font-bold tabular-nums">
                             {r.recommended_quantity}
@@ -378,7 +473,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                           <td />
                           <td colSpan={COLUMNS.length + 1} className="px-4 pb-4 pt-0">
                             <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Stock by warehouse</p>
-                            <WarehouseBreakdown breakdown={r.warehouse_breakdown} />
+                            <WarehouseBreakdown r={r} />
                           </td>
                         </tr>
                       )}
@@ -390,7 +485,10 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
           )}
 
           <div className="px-4 py-3 border-t bg-muted/30 rounded-b-xl flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Showing {visibleItems.length} of {purchaseItems.length} items{normalizedManual.length > 0 && ` · ${normalizedManual.length} manual items included in export`}</span>
+            <span>
+              Showing {visibleItems.length} of {allPurchaseItems.length} items · {purchaseItems.length} from analysis · {manualRows.length} added manually
+              {duplicateCount > 0 && <span className="text-warning"> · {duplicateCount} manual {duplicateCount === 1 ? 'item is' : 'items are'} also in the analysis</span>}
+            </span>
             {grandTotal > 0 && (
               <span className="text-sm font-semibold text-foreground">
                 Total: {withSar
