@@ -16,6 +16,18 @@ import VendorNotice from '@/components/VendorNotice';
 import moment from 'moment';
 import { useVendorSelection } from '@/hooks/useVendors';
 import { getSarRate } from '@/lib/partConstants';
+import { catalogCodeKey, splitItemCode } from '@/lib/analysisUtils';
+
+// Stock status of an analysis row after its minimum changes (same rule as the analysis itself).
+function withMinimum(row, minimum) {
+  const current = Number(row.current_stock) || 0;
+  const needsPurchase = current < minimum;
+  return {
+    minimum_stock: minimum,
+    recommended_quantity: needsPurchase ? minimum - current : 0,
+    status: !needsPurchase ? 'sufficient' : current <= 0 ? 'critical' : 'low',
+  };
+}
 
 export default function Analysis() {
   const { vendors, selectedVendor } = useVendorSelection();
@@ -31,6 +43,55 @@ export default function Analysis() {
   const [manualItems, setManualItems] = useState([]);
   const [activeTab, setActiveTab] = useState('results');
   const { toast } = useToast();
+
+  // Changes a part's minimum from the Stock Status table: saved on its master item(s), so later analyses use it,
+  // and on the shown analysis row, so the purchase list updates right away.
+  const handleUpdateMinimum = async (analysisId, minimum) => {
+    const row = results?.find(r => r.id === analysisId);
+    if (!row) return false;
+    try {
+      const keys = new Set(splitItemCode(row.item_code).concat(row.item_code).map(catalogCodeKey).filter(Boolean));
+      const masterItems = await fetchAll(base44.entities.MasterItem, { vendor_id: selectedVendor });
+      // Every master record of the part (e.g. "D0066806" and "IMM0066806") gets the new minimum,
+      // otherwise the analysis would keep using the higher one of them.
+      const matches = masterItems.filter(mi =>
+        keys.has(catalogCodeKey(mi.mediserv_item_code)) || keys.has(catalogCodeKey(mi.manufacturer_item_code)));
+      if (matches.length === 0) {
+        toast({ title: 'Not in the master list', description: `${row.item_code} was not found in the master list`, variant: 'destructive' });
+        return false;
+      }
+      const changes = withMinimum(row, minimum);
+      await Promise.all([
+        ...matches.map(mi => base44.entities.MasterItem.update(mi.id, { minimum_stock: minimum })),
+        base44.entities.AnalysisItem.update(row.id, changes),
+      ]);
+      const updated = results.map(r => (r.id === row.id ? { ...r, ...changes } : r));
+      setResults(updated);
+
+      // Keep the run's counts in line with its items.
+      if (shownRun) {
+        const summary = {
+          items_to_purchase: updated.filter(r => r.status === 'critical' || r.status === 'low').length,
+          critical_items: updated.filter(r => r.status === 'critical').length,
+        };
+        setShownRun(prev => (prev ? { ...prev, ...summary } : prev));
+        setRuns(prev => prev.map(r => (r.id === shownRun.id ? { ...r, ...summary } : r)));
+        base44.entities.AnalysisRun.update(shownRun.id, summary).catch(() => {});
+      }
+
+      toast({
+        title: 'Minimum updated',
+        description: changes.status === 'sufficient'
+          ? `${row.item_code}: minimum ${minimum} — stock is enough now, removed from the purchase list`
+          : `${row.item_code}: minimum ${minimum} — order ${changes.recommended_quantity}`,
+      });
+      return true;
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to update the minimum', variant: 'destructive' });
+      return false;
+    }
+  };
 
   // Deletes from the Stock Status table. Items already deleted stay removed even if others fail.
   const handleDeleteManual = async (ids) => {
@@ -301,6 +362,7 @@ export default function Analysis() {
                 sarRate={sarRate}
                 manualItems={manualItems}
                 onDeleteManual={handleDeleteManual}
+                onUpdateMinimum={handleUpdateMinimum}
               />
             ) : (
               <Card className="p-8 text-center text-muted-foreground">

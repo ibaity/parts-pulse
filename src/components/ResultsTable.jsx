@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import {
 import {
   Download, PackageX, CheckCircle2, FileSpreadsheet, FileText, ChevronDown, Search, ArrowRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShoppingCart, AlertTriangle, EyeOff, Wallet, PenLine,
-  Trash2, Loader2, X,
+  Trash2, Loader2, X, Pencil, Check,
 } from 'lucide-react';
 import { getCurrencySymbol, formatPrice, formatSar, showsSar } from '@/lib/partConstants';
 import Money from '@/components/Money';
@@ -180,6 +180,74 @@ function SourceTag({ r }) {
   );
 }
 
+// The minimum, editable in place: click it, type, Enter (or leave the field) saves, Escape cancels.
+function MinimumEditor({ value, onSave, size = 'md' }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
+  const savingRef = useRef(false);
+
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  const start = (e) => {
+    e.stopPropagation();
+    setDraft(value === null || value === undefined ? '' : String(value));
+    setEditing(true);
+  };
+  const save = async () => {
+    if (savingRef.current) return; // Enter disables the field, which can fire blur → save a second time
+    const next = Number(draft);
+    if (draft.trim() === '' || !Number.isFinite(next) || next < 0 || next === Number(value)) {
+      setEditing(false);
+      return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    const ok = await onSave(Math.round(next));
+    savingRef.current = false;
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Input
+          ref={inputRef}
+          type="number"
+          min={0}
+          step={1}
+          inputMode="numeric"
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          onBlur={save}
+          className={`${size === 'sm' ? 'h-8 w-20' : 'h-8 w-16'} px-2 text-right tabular-nums`}
+          aria-label="Minimum stock"
+        />
+        {saving
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+          : <button onMouseDown={(e) => e.preventDefault()} onClick={save} className="p-1 rounded hover:bg-primary/10 text-primary" aria-label="Save minimum"><Check className="w-3.5 h-3.5" /></button>}
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={start}
+      className="group inline-flex items-center gap-1 px-1.5 py-0.5 -mr-1.5 rounded hover:bg-muted tabular-nums"
+      title="Edit the minimum (saved to the master list)"
+    >
+      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+      {value ?? '—'}
+    </button>
+  );
+}
+
 const ROW_BORDER = { critical: 'border-l-critical', low: 'border-l-warning', manual: 'border-l-primary' };
 
 function MiniStat({ label, value, danger = false, highlight = false }) {
@@ -220,7 +288,7 @@ function WarehouseBreakdown({ r }) {
   );
 }
 
-export default function ResultsTable({ results, vendorId, vendorName, currency, sarRate, manualItems = [], onDeleteManual }) {
+export default function ResultsTable({ results, vendorId, vendorName, currency, sarRate, manualItems = [], onDeleteManual, onUpdateMinimum }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(() => new Set()); // manual item ids
   const [confirmIds, setConfirmIds] = useState(null); // manual item ids waiting for confirmation
@@ -250,6 +318,7 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
       return {
         id: `manual-${m.id}`,
         manual_id: m.id,
+        analysis_id: known?.id || null,
         source: 'manual',
         item_code: m.item_code || '',
         description: m.description || known?.description || '',
@@ -279,6 +348,12 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
   // Ids of deleted items drop out of the selection on their own.
   const selectedIds = manualRows.filter(r => selected.has(r.manual_id)).map(r => r.manual_id);
   const canDelete = !!onDeleteManual;
+  // The analysis row whose minimum a table row edits (a manual row edits the analysis row of its part).
+  const minimumTarget = (r) => {
+    if (!onUpdateMinimum) return null;
+    if (r.source === 'analysis') return r.id || null;
+    return r.analysis_id;
+  };
 
   const toggleSelected = (id) => setSelected(prev => {
     const next = new Set(prev);
@@ -479,6 +554,12 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                   </div>
                   {isOpen && (
                     <div className="mt-3 space-y-3">
+                      {minimumTarget(r) && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          Minimum
+                          <MinimumEditor size="sm" value={r.minimum_stock} onSave={(v) => onUpdateMinimum(minimumTarget(r), v)} />
+                        </div>
+                      )}
                       <WarehouseBreakdown r={r} />
                       {canDelete && r.source === 'manual' && (
                         <Button size="sm" variant="outline" className="h-8 text-destructive" onClick={() => setConfirmIds([r.manual_id])}>
@@ -541,7 +622,11 @@ export default function ResultsTable({ results, vendorId, vendorName, currency, 
                         <td className="px-4 py-3.5 text-right">
                           <StockLevel r={r} />
                         </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">{r.minimum_stock ?? '—'}</td>
+                        <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
+                          {minimumTarget(r)
+                            ? <MinimumEditor value={r.minimum_stock} onSave={(v) => onUpdateMinimum(minimumTarget(r), v)} />
+                            : (r.minimum_stock ?? '—')}
+                        </td>
                         <td className="px-4 py-3.5 text-right">
                           <span className="inline-block min-w-[2.75rem] text-center px-2 py-1 rounded-md bg-primary/10 text-primary text-base font-bold tabular-nums">
                             {r.recommended_quantity}
