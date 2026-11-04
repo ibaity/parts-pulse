@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { fetchAll } from '@/lib/fetchAll';
 import { groupUnknownItems, findMasterDuplicates } from '@/lib/dedupe';
-import { catalogCodeKey } from '@/lib/analysisUtils';
+import { catalogCodeKey, splitStock } from '@/lib/analysisUtils';
 import { Card } from '@/components/ui/card';
 import MasterItemsTable from '@/components/MasterItemsTable';
 import UnknownItemsTable from '@/components/UnknownItemsTable';
@@ -77,10 +77,7 @@ export default function PartList() {
           items.forEach(ai => {
             const code = catalogCodeKey(ai.item_code);
             if (code) {
-              map[code] = {
-                total: ai.current_stock || 0,
-                breakdown: ai.warehouse_breakdown || {},
-              };
+              map[code] = { ...splitStock(ai.warehouse_breakdown), breakdown: ai.warehouse_breakdown || {} };
               if (ai.warehouse_breakdown) {
                 Object.keys(ai.warehouse_breakdown).forEach(k => whNames.add(k));
               }

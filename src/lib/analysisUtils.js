@@ -55,6 +55,19 @@ export function parseWarehouse(value) {
   return { key: raw.toUpperCase(), name: '' };
 }
 
+// Stock of a part split by kind of warehouse: main warehouses (counted ones only) and engineers' stock.
+// The Part List total is the main stock; engineer stock is shown on its own.
+export function splitStock(warehouseBreakdown) {
+  let main = 0;
+  let engineers = 0;
+  for (const [name, info] of Object.entries(warehouseBreakdown || {})) {
+    const qty = Number(info?.quantity) || 0;
+    if (isEngineerWarehouse(name)) engineers += qty;
+    else if (info?.enabled) main += qty;
+  }
+  return { total: main, engineers };
+}
+
 // Exact match on warehouse name or code — partial matching made "WH1" also match "WH10".
 export function isWarehouseEnabled(warehouseName, enabledWarehouses) {
   const normalized = normalizeName(warehouseName);
