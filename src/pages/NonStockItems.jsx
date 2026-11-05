@@ -3,7 +3,11 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import NonStockItemDialog, { NON_STOCK_CITIES } from '@/components/NonStockItemDialog';
+import NonStockItemDialog from '@/components/NonStockItemDialog';
+import NonStockUploadDialog from '@/components/NonStockUploadDialog';
+import { NON_STOCK_CODES, cityOf, locationOf, stockTotals } from '@/lib/nonStock';
+import { fetchAll } from '@/lib/fetchAll';
+import { useVendors } from '@/hooks/useVendors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,26 +19,29 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, PackageOpen, Pencil, Trash2, CheckCircle2, Undo2, Search } from 'lucide-react';
+import { Plus, PackageOpen, Pencil, Trash2, CheckCircle2, Undo2, Search, Upload, Download } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
-const FILTERS = ['All', ...NON_STOCK_CITIES];
+const FILTERS = ['All', ...NON_STOCK_CODES];
 
 export default function NonStockItems() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [cityFilter, setCityFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
+  const { vendors } = useVendors();
+  const vendorName = (id) => vendors.find(v => v.id === id)?.name || '';
 
   const load = async () => {
     setLoading(true);
     try {
-      setItems(await base44.entities.NonStockItem.list('-created_date', 1000));
+      setItems(await fetchAll(base44.entities.NonStockItem));
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load non-stock items', variant: 'destructive' });
     }
@@ -46,12 +53,17 @@ export default function NonStockItems() {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter(i =>
-      (cityFilter === 'All' || i.city === cityFilter) &&
+      (locationFilter === 'All' || locationOf(i) === locationFilter) &&
       (!q || `${i.item_code} ${i.description || ''} ${i.notes || ''}`.toLowerCase().includes(q))
     );
-  }, [items, cityFilter, search]);
+  }, [items, locationFilter, search]);
 
-  const countFor = (f) => items.filter(i => f === 'All' || i.city === f).length;
+  const totals = useMemo(() => stockTotals(items), [items]);
+
+  const handleExport = async () => {
+    const { exportNonStockExcel } = await import('@/lib/exportUtils');
+    exportNonStockExcel(visible, locationFilter, vendorName);
+  };
 
   const handleAdd = () => { setEditingItem(null); setDialogOpen(true); };
   const handleEdit = (item) => { setEditingItem(item); setDialogOpen(true); };
@@ -82,22 +94,32 @@ export default function NonStockItems() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
-      <PageHeader icon={PackageOpen} title="Non Stock Items" subtitle="Parts removed from system stock that we still hold and can use, by city">
+      <PageHeader icon={PackageOpen} title="Non Stock Items" subtitle="Stock we hold outside the system: N102 Riyadh, N202 Jeddah, N302 Khobar">
+        <Button variant="outline" onClick={handleExport} disabled={!visible.length}>
+          <Download className="w-4 h-4 mr-2" /> Export
+        </Button>
+        <Button variant="outline" onClick={() => setUploadOpen(true)}>
+          <Upload className="w-4 h-4 mr-2" /> Upload Excel
+        </Button>
         <Button onClick={handleAdd}>
           <Plus className="w-4 h-4 mr-2" /> Add Item
         </Button>
       </PageHeader>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {FILTERS.map(f => (
             <Button
               key={f}
               size="sm"
-              variant={cityFilter === f ? 'default' : 'outline'}
-              onClick={() => setCityFilter(f)}
+              variant={locationFilter === f ? 'default' : 'outline'}
+              onClick={() => setLocationFilter(f)}
+              className="h-auto py-1.5 flex-col items-start gap-0"
             >
-              {f} <span className="ml-1.5 opacity-70">{countFor(f)}</span>
+              <span>{f === 'All' ? 'All' : `${f} · ${cityOf(f)}`}</span>
+              <span className="text-[10px] font-normal opacity-70 tabular-nums">
+                {totals[f].items} items · {totals[f].quantity.toLocaleString()} qty
+              </span>
             </Button>
           ))}
         </div>
@@ -115,7 +137,7 @@ export default function NonStockItems() {
         <Card className="p-12 text-center">
           <PackageOpen className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm font-medium">No non-stock items</p>
-          <p className="text-xs text-muted-foreground mt-1">Add parts that are out of the system but still available in Riyadh or Jeddah.</p>
+          <p className="text-xs text-muted-foreground mt-1">Upload an Excel file or add parts held outside the system in N102, N202 or N302.</p>
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -126,7 +148,8 @@ export default function NonStockItems() {
                   <th className="text-left p-3 font-medium">Item Code</th>
                   <th className="text-left p-3 font-medium">Description</th>
                   <th className="text-right p-3 font-medium">Qty</th>
-                  <th className="text-left p-3 font-medium">City</th>
+                  <th className="text-left p-3 font-medium">Location</th>
+                  <th className="text-left p-3 font-medium">Vendor</th>
                   <th className="text-left p-3 font-medium">Status</th>
                   <th className="text-left p-3 font-medium">Notes</th>
                   <th className="text-right p-3 font-medium">Actions</th>
@@ -138,7 +161,8 @@ export default function NonStockItems() {
                     <td className="p-3 font-mono text-xs font-medium">{i.item_code}</td>
                     <td className="p-3">{i.description || '-'}</td>
                     <td className="p-3 text-right tabular-nums">{i.quantity ?? 0}{i.unit ? ` ${i.unit}` : ''}</td>
-                    <td className="p-3">{i.city}</td>
+                    <td className="p-3 whitespace-nowrap">{locationOf(i) ? <><span className="font-mono text-xs font-medium">{locationOf(i)}</span> <span className="text-muted-foreground">{cityOf(locationOf(i))}</span></> : (i.city || '-')}</td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">{vendorName(i.vendor_id) || '-'}</td>
                     <td className="p-3">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${i.status === 'used' ? 'bg-muted text-muted-foreground' : 'bg-accent/10 text-accent'}`}>
                         {i.status === 'used' ? 'Used' : 'Available'}
@@ -169,7 +193,16 @@ export default function NonStockItems() {
         onClose={() => setDialogOpen(false)}
         onSaved={load}
         item={editingItem}
-        defaultCity={cityFilter === 'All' ? undefined : cityFilter}
+        defaultLocation={locationFilter === 'All' ? undefined : locationFilter}
+      />
+
+      <NonStockUploadDialog
+        key={locationFilter}
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSaved={load}
+        existingItems={items}
+        defaultLocation={locationFilter === 'All' ? undefined : locationFilter}
       />
 
       <AlertDialog open={!!deleteItem} onOpenChange={(open) => !open && setDeleteItem(null)}>

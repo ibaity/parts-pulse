@@ -6,15 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { NON_STOCK_LOCATIONS, NON_STOCK_CODES, cityOf, locationLabel, locationOf } from '@/lib/nonStock';
 
-export const NON_STOCK_CITIES = ['Riyadh', 'Jeddah'];
-
-export default function NonStockItemDialog({ open, onClose, onSaved, item, defaultCity }) {
+export default function NonStockItemDialog({ open, onClose, onSaved, item, defaultLocation }) {
   const [itemCode, setItemCode] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('');
-  const [city, setCity] = useState(NON_STOCK_CITIES[0]);
+  const [location, setLocation] = useState(NON_STOCK_CODES[0]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -27,10 +26,10 @@ export default function NonStockItemDialog({ open, onClose, onSaved, item, defau
       setDescription(item?.description || '');
       setQuantity(String(item?.quantity ?? 1));
       setUnit(item?.unit || '');
-      setCity(item?.city || defaultCity || NON_STOCK_CITIES[0]);
+      setLocation(locationOf(item) || defaultLocation || NON_STOCK_CODES[0]);
       setNotes(item?.notes || '');
     }
-  }, [open, item, defaultCity]);
+  }, [open, item, defaultLocation]);
 
   const handleSave = async () => {
     if (!itemCode.trim()) {
@@ -44,7 +43,8 @@ export default function NonStockItemDialog({ open, onClose, onSaved, item, defau
         description: description.trim(),
         quantity: Number(quantity) || 0,
         unit: unit.trim(),
-        city,
+        location_code: location,
+        city: cityOf(location),
         notes: notes.trim(),
       };
       if (isEditing) {
@@ -87,11 +87,11 @@ export default function NonStockItemDialog({ open, onClose, onSaved, item, defau
               <Input value={unit} onChange={e => setUnit(e.target.value)} placeholder="EA" />
             </div>
             <div className="space-y-2">
-              <Label>City *</Label>
-              <Select value={city} onValueChange={setCity}>
+              <Label>Location *</Label>
+              <Select value={location} onValueChange={setLocation}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {NON_STOCK_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {NON_STOCK_LOCATIONS.map(l => <SelectItem key={l.code} value={l.code}>{locationLabel(l.code)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
