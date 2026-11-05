@@ -8,6 +8,8 @@ import NonStockUploadDialog from '@/components/NonStockUploadDialog';
 import { NON_STOCK_CODES, cityOf, locationOf, stockTotals } from '@/lib/nonStock';
 import { fetchAll } from '@/lib/fetchAll';
 import { useVendors } from '@/hooks/useVendors';
+import { useQueryClient } from '@tanstack/react-query';
+import { NON_STOCK_QUERY_KEY } from '@/hooks/useNonStock';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,12 +38,15 @@ export default function NonStockItems() {
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
   const { vendors } = useVendors();
+  const queryClient = useQueryClient();
   const vendorName = (id) => vendors.find(v => v.id === id)?.name || '';
 
   const load = async () => {
     setLoading(true);
     try {
       setItems(await fetchAll(base44.entities.NonStockItem));
+      // Parts search shows non-stock too, so it reloads after any change here.
+      queryClient.invalidateQueries({ queryKey: NON_STOCK_QUERY_KEY });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load non-stock items', variant: 'destructive' });
     }
@@ -73,6 +78,7 @@ export default function NonStockItems() {
     try {
       await base44.entities.NonStockItem.update(item.id, { status });
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, status } : i));
+      queryClient.invalidateQueries({ queryKey: NON_STOCK_QUERY_KEY });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update item', variant: 'destructive' });
     }

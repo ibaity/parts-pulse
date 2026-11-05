@@ -154,3 +154,36 @@ export function stockTotals(items) {
   }
   return totals;
 }
+
+// Available non-stock items indexed by part identity key, so catalog part numbers find them.
+export function indexNonStock(items) {
+  const byKey = new Map();
+  for (const i of items) {
+    if (i.status === 'used' || !(Number(i.quantity) > 0)) continue;
+    const key = catalogCodeKey(i.item_code);
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(i);
+  }
+  return byKey;
+}
+
+// Non-stock on hand for any of the given codes: { total, locations: [{ code, city, quantity }] }, or null if none.
+export function lookupNonStock(index, codes) {
+  if (!index) return null;
+  const found = new Set();
+  for (const c of codes) {
+    const key = catalogCodeKey(c);
+    if (key) (index.get(key) || []).forEach(i => found.add(i));
+  }
+  if (!found.size) return null;
+  const byLocation = new Map();
+  for (const i of found) {
+    const code = locationOf(i);
+    byLocation.set(code, (byLocation.get(code) || 0) + (Number(i.quantity) || 0));
+  }
+  const locations = [...byLocation.entries()]
+    .map(([code, quantity]) => ({ code, city: cityOf(code), quantity }))
+    .sort((a, b) => b.quantity - a.quantity);
+  return { total: locations.reduce((s, l) => s + l.quantity, 0), locations };
+}
