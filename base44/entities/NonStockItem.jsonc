@@ -9,7 +9,12 @@
     "city": {
       "type": "string",
       "title": "City",
-      "enum": ["Riyadh", "Jeddah"]
+      "enum": ["Riyadh", "Jeddah", "Dammam"]
+    },
+    "location_code": {
+      "type": "string",
+      "title": "Location Code",
+      "enum": ["N102", "N202", "N302"]
     },
     "vendor_id": { "type": "string", "title": "Vendor", "relation": "Vendor" },
     "status": {

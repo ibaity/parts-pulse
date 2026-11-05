@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { getCurrencySymbol, formatPrice, round2, showsSar, toSar } from '@/lib/partConstants';
+import { cityOf, locationOf } from '@/lib/nonStock';
 
 export function exportPurchaseExcel(purchaseItems, vendorName, currency, sarRate) {
   const symbol = getCurrencySymbol(currency);
@@ -167,4 +168,26 @@ export function exportPurchasePDF(purchaseItems, vendorName, currency, sarRate) 
 
   const dateStr = new Date().toISOString().split('T')[0];
   doc.save(`purchase_recommendations_${vendorName || 'vendor'}_${dateStr}.pdf`);
+}
+export function exportNonStockExcel(items, filterName, vendorName = () => '') {
+  const data = items.map(i => {
+    const code = locationOf(i);
+    return {
+      'Item Code': i.item_code,
+      'Description': i.description || '',
+      'Quantity': Number(i.quantity) || 0,
+      'Unit': i.unit || '',
+      'Location': code,
+      'City': cityOf(code) || i.city || '',
+      'Vendor': vendorName(i.vendor_id),
+      'Status': i.status === 'used' ? 'Used' : 'Available',
+      'Notes': i.notes || '',
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 30 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Non Stock');
+  const dateStr = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `non_stock_${filterName || 'All'}_${dateStr}.xlsx`);
 }
