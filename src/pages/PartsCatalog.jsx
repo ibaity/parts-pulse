@@ -26,6 +26,7 @@ const STOCK_TAB = '__stock__';
 const NONE = '__none__';
 // Every built-in part with its device, for searching across all devices at once.
 const ALL_PARTS = catalog.flatMap(g => g.items.map(p => ({ ...p, device: g.id })));
+const CATALOG_KEYS = new Set(ALL_PARTS.flatMap(p => [catalogCodeKey(p.partNo), catalogCodeKey(p.supplierNo)]).filter(Boolean));
 const imgSrc = (part) => part.imageUrl || `/catalog/img/${part.image}`;
 
 function PartImage({ part, className = '' }) {
@@ -426,6 +427,9 @@ export default function PartsCatalog() {
   // A search looks through every device and section, not just the open tab.
   const allDevices = !!search.trim() && !stockTab;
   const { lookup, isLoading: stockLoading, error: stockError, masters } = useCatalogStock(inStockOnly || stockTab);
+  const { nonStockPartsOutside, lookupNonStock } = useNonStock();
+  // Non-stock parts missing from the catalog still turn up in a search.
+  const nonStockOnly = useMemo(() => nonStockPartsOutside(CATALOG_KEYS), [nonStockPartsOutside]);
 
   // Master items currently in stock; falls back to master data when the built-in catalog has no entry.
   const stockItems = useMemo(() => {
@@ -449,8 +453,8 @@ export default function PartsCatalog() {
   }, [masters, lookup]);
 
   const baseItems = useMemo(
-    () => (stockTab ? stockItems : allDevices ? ALL_PARTS : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
-    [stockTab, allDevices, stockItems, group]
+    () => (stockTab ? stockItems : allDevices ? [...nonStockOnly, ...ALL_PARTS] : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
+    [stockTab, allDevices, stockItems, group, nonStockOnly]
   );
   const items = useMemo(() => baseItems.map(p => {
     const e = entries.find(p.partNo, p.supplierNo);
@@ -477,10 +481,10 @@ export default function PartsCatalog() {
       (deviceFilter === ALL || (deviceFilter === NONE ? !i.device : i.device === deviceFilter)) &&
       (!q || codeIncludes(i.partNo, q) || codeIncludes(i.supplierNo, q) ||
         fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
-      (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0) &&
+      (!inStockOnly || stockTab || !!i.partNo && ((lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0 || !!lookupNonStock(i.partNo, i.supplierNo))) &&
       (!needsInfoOnly || !i.name || !(i.image || i.imageUrl) || !i.section || !i.device || !i.models)
     );
-  }, [items, search, section, deviceFilter, inStockOnly, needsInfoOnly, stockTab, lookup]);
+  }, [items, search, section, deviceFilter, inStockOnly, needsInfoOnly, stockTab, lookup, lookupNonStock]);
 
   const changeGroup = (g) => { setGroup(g); setSection(ALL); setDeviceFilter(ALL); setLimit(PAGE_SIZE); };
 

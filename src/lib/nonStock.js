@@ -187,3 +187,19 @@ export function lookupNonStock(index, codes) {
     .sort((a, b) => b.quantity - a.quantity);
   return { total: locations.reduce((s, l) => s + l.quantity, 0), locations };
 }
+
+// Non-stock parts whose code is not among `knownKeys` (catalog part identity keys), as catalog-like parts,
+// so a search still finds them. One entry per part, with the first description found.
+export function nonStockOnlyParts(index, knownKeys) {
+  if (!index) return [];
+  const out = [];
+  for (const [key, items] of index) {
+    if (knownKeys.has(key)) continue;
+    const named = items.find(i => i.description) || items[0];
+    out.push({
+      partNo: named.item_code, supplierNo: '', name: named.description || named.item_code,
+      description: '', models: '', section: 'Non Stock', nonStockOnly: true,
+    });
+  }
+  return out;
+}
