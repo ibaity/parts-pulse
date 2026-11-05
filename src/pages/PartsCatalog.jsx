@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler, Warehouse, Loader2, Pencil, Upload, Link2, X, Plus } from 'lucide-react';
+import { BookOpen, Search, Copy, ExternalLink, ImageOff, Weight, Ruler, Warehouse, Loader2, Pencil, Upload, Link2, X, Plus, PackageOpen } from 'lucide-react';
 import catalog from '@/data/sparePartsCatalog.json';
 import PageHeader from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/ui/use-toast';
 import { fuzzyMatch } from '@/lib/partConstants';
 import { useCatalogStock } from '@/hooks/useCatalogStock';
+import { useNonStock } from '@/hooks/useNonStock';
 import { findCatalogPart, searchCatalog, suggestCatalogParts, DEVICE_OPTIONS, splitModels } from '@/lib/catalogLookup';
 import { useCatalogEntries } from '@/hooks/useCatalogEntries';
 import { catalogCodeKey, codeIncludes } from '@/lib/analysisUtils';
@@ -25,6 +26,7 @@ const STOCK_TAB = '__stock__';
 const NONE = '__none__';
 // Every built-in part with its device, for searching across all devices at once.
 const ALL_PARTS = catalog.flatMap(g => g.items.map(p => ({ ...p, device: g.id })));
+const CATALOG_KEYS = new Set(ALL_PARTS.flatMap(p => [catalogCodeKey(p.partNo), catalogCodeKey(p.supplierNo)]).filter(Boolean));
 const imgSrc = (part) => part.imageUrl || `/catalog/img/${part.image}`;
 
 function PartImage({ part, className = '' }) {
@@ -48,6 +50,8 @@ function PartImage({ part, className = '' }) {
 }
 
 function PartCard({ part, onOpen, showDevice }) {
+  const { lookupNonStock } = useNonStock();
+  const nonStock = part.partNo ? lookupNonStock(part.partNo, part.supplierNo) : null;
   return (
     <button
       onClick={() => onOpen(part)}
@@ -59,10 +63,11 @@ function PartCard({ part, onOpen, showDevice }) {
         <p className="text-sm font-medium leading-snug line-clamp-2">{part.name}</p>
         <p className="text-xs text-muted-foreground line-clamp-1">{part.models || part.section}</p>
         {showDevice && part.device && <p className="text-[11px] text-muted-foreground line-clamp-1">{deviceName(part.device)}</p>}
-        {part.stockTotal != null && (
+        {(part.stockTotal != null || nonStock) && (
           <div className="flex flex-wrap gap-1">
-            <Badge variant="secondary">{part.stockTotal} in stock</Badge>
-            {!part.entry && !part.image && <Badge variant="outline" className="text-warning border-warning/40">Needs info</Badge>}
+            {nonStock && <Badge className="bg-accent text-accent-foreground hover:bg-accent">{nonStock.total} non stock</Badge>}
+            {part.stockTotal != null && <Badge variant="secondary">{part.stockTotal} in stock</Badge>}
+            {part.stockTotal != null && !part.entry && !part.image && <Badge variant="outline" className="text-warning border-warning/40">Needs info</Badge>}
           </div>
         )}
       </div>
@@ -80,10 +85,37 @@ function Field({ label, children }) {
   );
 }
 
+// Non-stock parts are held outside the system; engineers request these before system stock.
+function NonStockNotice({ nonStock }) {
+  if (!nonStock) return null;
+  return (
+    <div className="rounded-lg border-2 border-accent/50 bg-accent/5 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-accent"><PackageOpen className="w-4 h-4" />Non Stock available — use first</p>
+        <Badge className="bg-accent text-accent-foreground hover:bg-accent">{nonStock.total} total</Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">Request this part from non-stock before using system stock.</p>
+      <div className="space-y-1.5">
+        {nonStock.locations.map(l => (
+          <div key={l.code || 'none'} className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-1.5 text-sm">
+            <span className="min-w-0 truncate">
+              <span className="font-mono text-xs font-medium">{l.code || '—'}</span>{l.city && <span className="text-muted-foreground"> · {l.city}</span>}
+            </span>
+            <span className="font-semibold tabular-nums">{l.quantity}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StockPanel({ part }) {
   const { lookup, isLoading, error, lastUpdate } = useCatalogStock(!!part.partNo);
+  const { lookupNonStock } = useNonStock();
   if (!part.partNo) return null;
   const stock = lookup(part.partNo, part.supplierNo);
+  // Stock lookup also gives the Mediserv codes linked through master items.
+  const nonStock = lookupNonStock(part.partNo, part.supplierNo, stock?.codes || []);
 
   let body;
   if (isLoading) {
@@ -112,6 +144,8 @@ function StockPanel({ part }) {
   }
 
   return (
+    <div className="space-y-3">
+    <NonStockNotice nonStock={nonStock} />
     <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-sm font-semibold"><Warehouse className="w-4 h-4" />Stock on hand</p>
@@ -126,6 +160,7 @@ function StockPanel({ part }) {
           Latest stock report: {new Date(lastUpdate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
         </p>
       )}
+    </div>
     </div>
   );
 }
@@ -392,6 +427,9 @@ export default function PartsCatalog() {
   // A search looks through every device and section, not just the open tab.
   const allDevices = !!search.trim() && !stockTab;
   const { lookup, isLoading: stockLoading, error: stockError, masters } = useCatalogStock(inStockOnly || stockTab);
+  const { nonStockPartsOutside, lookupNonStock } = useNonStock();
+  // Non-stock parts missing from the catalog still turn up in a search.
+  const nonStockOnly = useMemo(() => nonStockPartsOutside(CATALOG_KEYS), [nonStockPartsOutside]);
 
   // Master items currently in stock; falls back to master data when the built-in catalog has no entry.
   const stockItems = useMemo(() => {
@@ -415,8 +453,8 @@ export default function PartsCatalog() {
   }, [masters, lookup]);
 
   const baseItems = useMemo(
-    () => (stockTab ? stockItems : allDevices ? ALL_PARTS : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
-    [stockTab, allDevices, stockItems, group]
+    () => (stockTab ? stockItems : allDevices ? [...nonStockOnly, ...ALL_PARTS] : catalog.find(g => g.id === group).items.map(p => ({ ...p, device: group }))),
+    [stockTab, allDevices, stockItems, group, nonStockOnly]
   );
   const items = useMemo(() => baseItems.map(p => {
     const e = entries.find(p.partNo, p.supplierNo);
@@ -443,10 +481,10 @@ export default function PartsCatalog() {
       (deviceFilter === ALL || (deviceFilter === NONE ? !i.device : i.device === deviceFilter)) &&
       (!q || codeIncludes(i.partNo, q) || codeIncludes(i.supplierNo, q) ||
         fuzzyMatch(q, i.name) || fuzzyMatch(q, i.description) || fuzzyMatch(q, i.models)) &&
-      (!inStockOnly || stockTab || !!i.partNo && (lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0) &&
+      (!inStockOnly || stockTab || !!i.partNo && ((lookup(i.partNo, i.supplierNo)?.total ?? 0) > 0 || !!lookupNonStock(i.partNo, i.supplierNo))) &&
       (!needsInfoOnly || !i.name || !(i.image || i.imageUrl) || !i.section || !i.device || !i.models)
     );
-  }, [items, search, section, deviceFilter, inStockOnly, needsInfoOnly, stockTab, lookup]);
+  }, [items, search, section, deviceFilter, inStockOnly, needsInfoOnly, stockTab, lookup, lookupNonStock]);
 
   const changeGroup = (g) => { setGroup(g); setSection(ALL); setDeviceFilter(ALL); setLimit(PAGE_SIZE); };
 
