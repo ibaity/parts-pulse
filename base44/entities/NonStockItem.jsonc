@@ -9,7 +9,7 @@
     "city": {
       "type": "string",
       "title": "City",
-      "enum": ["Riyadh", "Jeddah", "Dammam"]
+      "enum": ["Riyadh", "Jeddah", "Khobar"]
     },
     "location_code": {
       "type": "string",

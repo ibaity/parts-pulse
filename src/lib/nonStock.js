@@ -4,7 +4,7 @@ import { catalogCodeKey } from '@/lib/analysisUtils';
 export const NON_STOCK_LOCATIONS = [
   { code: 'N102', city: 'Riyadh', names: ['riyadh', 'الرياض', 'رياض'] },
   { code: 'N202', city: 'Jeddah', names: ['jeddah', 'jedda', 'jiddah', 'جدة', 'جده'] },
-  { code: 'N302', city: 'Dammam', names: ['dammam', 'الدمام', 'دمام', 'khobar', 'الخبر', 'خبر'] },
+  { code: 'N302', city: 'Khobar', names: ['khobar', 'alkhobar', 'الخبر', 'خبر', 'dammam', 'الدمام', 'دمام'] },
 ];
 
 export const NON_STOCK_CODES = NON_STOCK_LOCATIONS.map(l => l.code);

@@ -94,7 +94,7 @@ export default function NonStockItems() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
-      <PageHeader icon={PackageOpen} title="Non Stock Items" subtitle="Stock we hold outside the system: N102 Riyadh, N202 Jeddah, N302 Dammam">
+      <PageHeader icon={PackageOpen} title="Non Stock Items" subtitle="Stock we hold outside the system: N102 Riyadh, N202 Jeddah, N302 Khobar">
         <Button variant="outline" onClick={handleExport} disabled={!visible.length}>
           <Download className="w-4 h-4 mr-2" /> Export
         </Button>
